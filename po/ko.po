@@ -5,6 +5,7 @@
 # Contributors:
 #  Hyunjun Kim <yoloseem@users.noreply.github.com>, 2015.
 #  Changwoo Ryu <cwryu@debian.org>, 2015-2018.
+#  Sihyeon Jang <uneedsihyeon@gmail.com>, 2018.
 #
 # - 작업자는 위 Contributors 목록에 추가해 주세요.
 # - 번역하면서 80컬럼을 넘어가지 않도록 해 주세요.
@@ -59,7 +60,7 @@ msgstr ""
 "Project-Id-Version: git\n"
 "Report-Msgid-Bugs-To: Git Mailing List <git@vger.kernel.org>\n"
 "POT-Creation-Date: 2017-12-31 10:45+0800\n"
-"PO-Revision-Date: 2017-10-17 16:23+0900\n"
+"PO-Revision-Date: 2018-01-06 21:48+0900\n"
 "Last-Translator: Changwoo Ryu <cwryu@debian.org>\n"
 "Language-Team: Git Korean translation <http://github.com/changwoo/git-l10n-"
 "ko>\n"
@@ -68,6 +69,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 2.0.5\n"
 
 #: advice.c:62
 #, c-format
@@ -2048,10 +2050,9 @@ msgid "multiple object filter types cannot be combined"
 msgstr ""
 
 #: list-objects-filter-options.c:41 list-objects-filter-options.c:68
-#, fuzzy, c-format
-#| msgid "invalid file: '%s'"
+#, c-format
 msgid "invalid filter-spec expression '%s'"
-msgstr "잘못된 키: '%s'"
+msgstr "잘못된 필터 양식 '%s'"
 
 #: lockfile.c:151
 #, c-format
@@ -5316,38 +5317,31 @@ msgid "git bisect--helper --write-terms <bad_term> <good_term>"
 msgstr ""
 
 #: builtin/bisect--helper.c:14
-#, fuzzy
-#| msgid "git bisect--helper --next-all [--no-checkout]"
 msgid "git bisect--helper --bisect-clean-state"
-msgstr "git bisect--helper --next-all [--no-checkout]"
+msgstr "git bisect--helper --bisect-clean-state"
 
 #: builtin/bisect--helper.c:46
-#, fuzzy, c-format
-#| msgid "'%s' is not a valid ref."
+#, c-format
 msgid "'%s' is not a valid term"
-msgstr "'%s'은(는) 올바른 레퍼런스가 아닙니다."
+msgstr "'%s'은(는) 올바른 용어가 아닙니다."
 
 #: builtin/bisect--helper.c:50
-#, fuzzy, c-format
-#| msgid "can't use the builtin command '$term' as a term"
+#, c-format
 msgid "can't use the builtin command '%s' as a term"
-msgstr "내부 명령어 '$term'을(를) 용어로 사용할 수 없습니다"
+msgstr "내부 명령어 '%s'을(를) 용어로 사용할 수 없습니다"
 
 #: builtin/bisect--helper.c:60
-#, fuzzy, c-format
-#| msgid "can't change the meaning of term '$term'"
+#, c-format
 msgid "can't change the meaning of the term '%s'"
-msgstr "용어 '$term'의 의미를 바꿀 수 없습니다"
+msgstr "용어 '%s'의 의미를 바꿀 수 없습니다"
 
 #: builtin/bisect--helper.c:71
 msgid "please use two different terms"
 msgstr "두 다른 용어를 사용하십시오"
 
 #: builtin/bisect--helper.c:78
-#, fuzzy
-#| msgid "could not open temporary file"
 msgid "could not open the file BISECT_TERMS"
-msgstr "임시 파일을 열 수 없습니다: %s"
+msgstr "BISECT_TERMS 파일을 열 수 없습니다"
 
 #: builtin/bisect--helper.c:120
 msgid "perform 'git bisect next'"
@@ -5370,16 +5364,12 @@ msgid "update BISECT_HEAD instead of checking out the current commit"
 msgstr "현재 커밋을 가져오는 대신 BISECT_HEAD를 업데이트합니다"
 
 #: builtin/bisect--helper.c:143
-#, fuzzy
-#| msgid "--abort expects no arguments"
 msgid "--write-terms requires two arguments"
-msgstr "--abort 옵션은 인자를 받지 않습니다"
+msgstr "--write-terms 옵션은 두 인자가 필요합니다"
 
 #: builtin/bisect--helper.c:147
-#, fuzzy
-#| msgid "--continue expects no arguments"
 msgid "--bisect-clean-state requires no arguments"
-msgstr "--continue 옵션은 인자를 받지 않습니다"
+msgstr "--bisect-clean-state 옵션은 인자가 필요하지 않습니다"
 
 #: builtin/blame.c:27
 msgid "git blame [<options>] [<rev-opts>] [<rev>] [--] <file>"
@@ -7371,14 +7361,12 @@ msgstr ""
 "추적되지 않는 파일을 표시합니다. 추가 옵션: all, normal, no (기본값: all)"
 
 #: builtin/commit.c:1382
-#, fuzzy
-#| msgid ""
-#| "show untracked files, optional modes: all, normal, no. (Default: all)"
 msgid ""
 "show ignored files, optional modes: traditional, matching, no. (Default: "
 "traditional)"
 msgstr ""
-"추적되지 않는 파일을 표시합니다. 추가 옵션: all, normal, no (기본값: all)"
+"무시된 파일을 표시합니다. 추가 옵션: traditional, matching, no. (기본값: "
+"traditional)"
 
 #: builtin/commit.c:1384 parse-options.h:155
 msgid "when"
@@ -7869,10 +7857,9 @@ msgstr ""
 "표시합니다. %s 위치에서 검색을 중지합니다.\n"
 
 #: builtin/describe.c:494
-#, fuzzy, c-format
-#| msgid "searching to describe %s\n"
+#, c-format
 msgid "describe %s\n"
-msgstr "%s 설명을 위해 검색하는 중\n"
+msgstr "%s 설명합니다\n"
 
 #: builtin/describe.c:497 builtin/log.c:500
 #, c-format
@@ -10766,10 +10753,8 @@ msgid "git notes [--ref <notes-ref>] remove [<object>...]"
 msgstr "git notes [--ref <노트-레퍼런스>] remove [<오브젝트>...]"
 
 #: builtin/notes.c:36
-#, fuzzy
-#| msgid "git notes [--ref <notes-ref>] prune [-n | -v]"
 msgid "git notes [--ref <notes-ref>] prune [-n] [-v]"
-msgstr "git notes [--ref <노트-레퍼런스>] prune [-n | -v]"
+msgstr "git notes [--ref <노트-레퍼런스>] prune [-n] [-v]"
 
 #: builtin/notes.c:37
 msgid "git notes [--ref <notes-ref>] get-ref"
@@ -11348,10 +11333,8 @@ msgid "Removing duplicate objects"
 msgstr "중복된 오브젝트 제거"
 
 #: builtin/prune.c:11
-#, fuzzy
-#| msgid "git prune [-n] [-v] [--expire <time>] [--] [<head>...]"
 msgid "git prune [-n] [-v] [--progress] [--expire <time>] [--] [<head>...]"
-msgstr "git prune [-n] [-v] [--expire <시각>] [--] [<헤드>...]"
+msgstr "git prune [-n] [-v] [--progress] [--expire <시각>] [--] [<헤드>...]"
 
 #: builtin/prune.c:106
 msgid "report pruned objects"
@@ -13407,10 +13390,8 @@ msgid "recurse into nested submodules"
 msgstr "하위 모듈에 재귀적으로 적용"
 
 #: builtin/submodule--helper.c:684
-#, fuzzy
-#| msgid "git submodule--helper update_clone [--prefix=<path>] [<path>...]"
 msgid "git submodule status [--quiet] [--cached] [--recursive] [<path>...]"
-msgstr "git submodule--helper update_clone [--prefix=<경로>] [<경로>...]"
+msgstr "git submodule status [--quiet] [--cached] [--recursive] [<경로>...]"
 
 #: builtin/submodule--helper.c:708
 msgid "git submodule--helper name <path>"
@@ -13980,10 +13961,8 @@ msgid "write out the index even if is not flagged as changed"
 msgstr ""
 
 #: builtin/update-index.c:1024
-#, fuzzy
-#| msgid "enable or disable split index"
 msgid "enable or disable file system monitor"
-msgstr "스플릿 인덱스를 켜거나 끕니다"
+msgstr "파일 시스템 모니터를 켜거나 끕니다"
 
 #: builtin/update-index.c:1026
 #, fuzzy
@@ -14231,10 +14210,8 @@ msgid "keep the new working tree locked"
 msgstr "새 작업 폴더를 잠궈 둡니다"
 
 #: builtin/worktree.c:377
-#, fuzzy
-#| msgid "set up tracking mode (see git-pull(1))"
 msgid "set up tracking mode (see git-branch(1))"
-msgstr "추적 모드를 설정합니다 (git-pull(1) 참고)"
+msgstr "추적 모드를 설정합니다 (git-branch(1) 참고)"
 
 #: builtin/worktree.c:380
 #, fuzzy
@@ -14767,10 +14744,8 @@ msgid "The pre-rebase hook refused to rebase."
 msgstr "리베이스 전 후크에서 리베이스를 거부했습니다."
 
 #: git-rebase.sh:219
-#, fuzzy
-#| msgid "It looks like git-am is in progress. Cannot rebase."
 msgid "It looks like 'git am' is in progress. Cannot rebase."
-msgstr "git-am이 진행 중인 것처럼 보입니다. 리베이스할 수 없습니다."
+msgstr "'git am'이 진행 중인 것처럼 보입니다. 리베이스할 수 없습니다."
 
 #: git-rebase.sh:363
 msgid "No rebase in progress?"
@@ -14814,10 +14789,9 @@ msgstr ""
 "대비해 여기서 멈춥니다."
 
 #: git-rebase.sh:480
-#, fuzzy, sh-format
-#| msgid "invalid upstream $upstream_name"
+#, sh-format
 msgid "invalid upstream '$upstream_name'"
-msgstr "잘못된 업스트림 $upstream_name"
+msgstr "잘못된 업스트림 '$upstream_name'"
 
 #: git-rebase.sh:504
 #, sh-format
@@ -14835,10 +14809,9 @@ msgid "Does not point to a valid commit: $onto_name"
 msgstr "올바른 커밋을 가리키지 않습니다: $onto_name"
 
 #: git-rebase.sh:542
-#, fuzzy, sh-format
-#| msgid "fatal: no such branch: $branch_name"
+#, sh-format
 msgid "fatal: no such branch/commit '$branch_name'"
-msgstr "치명적 이상: 그런 브랜치가 없습니다: $branch_name"
+msgstr "치명적 이상: 그런 브랜치/커밋이 없습니다 '$branch_name'"
 
 #: git-rebase.sh:575
 msgid "Cannot autostash"
@@ -14854,10 +14827,9 @@ msgid "Please commit or stash them."
 msgstr "커밋하거나 스태시에 넣으십시오."
 
 #: git-rebase.sh:607
-#, fuzzy, sh-format
-#| msgid "HEAD is now at"
+#, sh-format
 msgid "HEAD is up to date."
-msgstr "HEAD의 현재 위치는"
+msgstr "HEAD가 최신 상태입니다."
 
 #: git-rebase.sh:609
 #, sh-format
@@ -14865,10 +14837,9 @@ msgid "Current branch $branch_name is up to date."
 msgstr "현재 브랜치가 ($branch_name) 최신 상태입니다."
 
 #: git-rebase.sh:617
-#, fuzzy, sh-format
-#| msgid "Current branch $branch_name is up to date, rebase forced."
+#, sh-format
 msgid "HEAD is up to date, rebase forced."
-msgstr "현재 브랜치가 ($branch_name) 최신 상태입니다. 강제 리베이스합니다."
+msgstr "HEAD가 최신 상태입니다. 강제 리베이스합니다."
 
 #: git-rebase.sh:619
 #, sh-format
