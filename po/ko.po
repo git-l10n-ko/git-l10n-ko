@@ -6,6 +6,7 @@
 #  Hyunjun Kim <yoloseem@users.noreply.github.com>, 2015.
 #  Changwoo Ryu <cwryu@debian.org>, 2015-2018.
 #  Sihyeon Jang <uneedsihyeon@gmail.com>, 2018.
+#  Gwan-gyeong Mun <elongbug@gmail.com>, 2018.
 #
 # - 작업자는 위 Contributors 목록에 추가해 주세요.
 # - 번역하면서 80컬럼을 넘어가지 않도록 해 주세요.
@@ -1683,7 +1684,7 @@ msgstr "'%s'에서 '%s'(으)로 git 디렉터리를 옮겨올 수 없습니다"
 #: editor.c:61
 #, c-format
 msgid "hint: Waiting for your editor to close the file...%c"
-msgstr ""
+msgstr "힌트: 편집기가 파일 닫는 것을 기다리는 중입니다...%c"
 
 #: entry.c:177
 msgid "Filtering content"
