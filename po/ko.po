@@ -37,7 +37,7 @@
 #  | fsmonitor    | 파일 시스템 모니터                           |
 #  | Git          | 깃                                           |
 #  | head         | 헤드                                         |
-#  | hook         | 훅                                           |
+#  | hook         | 후크                                         |
 #  | history      | (커밋) 내역                                  |
 #  | log          | 기록                                         |
 #  | merge        | 병합                                         |
@@ -1003,7 +1003,7 @@ msgid ""
 "Maybe you started with bad path parameters?\n"
 msgstr ""
 "시험 가능한 커밋이 없습니다.\n"
-"잘못도니 경로 파라미터로 시작하지 않았습니까?\n"
+"잘못된 경로 파라미터로 시작하지 않았습니까?\n"
 
 #: bisect.c:1006
 #, c-format
@@ -2948,6 +2948,8 @@ msgid ""
 "The '%s' hook was ignored because it's not set as executable.\n"
 "You can disable this warning with `git config advice.ignoredHook false`."
 msgstr ""
+"'%s' 후크가 실행 가능하도록 설정되지 않아서, 무시됩니다.\n"
+"이 경고는 `git config advice.ignoredHook false` 명령으로 끌 수 있습니다."
 
 #: send-pack.c:141
 #, c-format
@@ -4806,7 +4808,7 @@ msgstr "추적되는 파일을 업데이트합니다"
 
 #: builtin/add.c:299
 msgid "renormalize EOL of tracked files (implies -u)"
-msgstr ""
+msgstr "추적된 파일의 새줄문자(EOL)를 재 적용합니다 (-u 옵션 포함)"
 
 #: builtin/add.c:300
 msgid "record only the fact that the path will be added later"
@@ -4926,7 +4928,7 @@ msgstr "작성자 스크립트를 파싱할 수 없습니다"
 #: builtin/am.c:498
 #, c-format
 msgid "'%s' was deleted by the applypatch-msg hook"
-msgstr "applypatch-msg 훅 때문에 '%s'이(가) 삭제되었습니다."
+msgstr "applypatch-msg 후크 때문에 '%s'이(가) 삭제되었습니다."
 
 #: builtin/am.c:539
 #, c-format
@@ -5331,7 +5333,7 @@ msgstr "git bisect--helper --next-all [--no-checkout]"
 
 #: builtin/bisect--helper.c:13
 msgid "git bisect--helper --write-terms <bad_term> <good_term>"
-msgstr ""
+msgstr "git bisect--helper --write-terms <비정상_용어> <정상_용어>"
 
 #: builtin/bisect--helper.c:14
 msgid "git bisect--helper --bisect-clean-state"
@@ -5370,7 +5372,7 @@ msgstr "용어를 .git/BISECT_TERMS에 씁니다"
 
 #: builtin/bisect--helper.c:124
 msgid "cleanup the bisection state"
-msgstr ""
+msgstr "이등분 상태를 정리합니다"
 
 #: builtin/bisect--helper.c:126
 msgid "check for expected revs"
@@ -7401,7 +7403,7 @@ msgstr "추적되지 않는 파일의 목록을 여러 열로 표시합니다"
 
 #: builtin/commit.c:1406
 msgid "Unsupported combination of ignored and untracked-files arguments"
-msgstr ""
+msgstr "무시한 모드와 추적되지 않는 파일의 인수가 지원되지 않는 조합입니다"
 
 #: builtin/commit.c:1469
 msgid "couldn't look up newly created commit"
@@ -7719,7 +7721,7 @@ msgstr "값이 경로(파일 또는 디렉터리 이름)입니다"
 
 #: builtin/config.c:84
 msgid "value is an expiry date"
-msgstr ""
+msgstr "값이 만료 시각입니다"
 
 #: builtin/config.c:85
 msgid "Other"
@@ -7830,7 +7832,7 @@ msgstr "어떤 태그도 '%s'와(과) 정확히 일치하지 않습니다"
 #: builtin/describe.c:316
 #, c-format
 msgid "No exact match on refs or tags, searching to describe\n"
-msgstr ""
+msgstr "어떤 레퍼런스나 태그도 정확히 일치하지 않고, 설명을 검색합니다\n"
 
 #: builtin/describe.c:363
 #, c-format
@@ -12842,7 +12844,7 @@ msgstr "rev-list는 노트 표시를 지원하지 않습니다"
 
 #: builtin/rev-list.c:445
 msgid "cannot combine --use-bitmap-index with object filtering"
-msgstr ""
+msgstr "--use-bitmap-index 옵션에 오브젝트 필터링을 결합 할 수 없습니다"
 
 #: builtin/rev-parse.c:402
 msgid "git rev-parse --parseopt [<options>] -- [<args>...]"
@@ -13373,7 +13375,7 @@ msgstr "하위 모듈 상태를 출력하지 않습니다"
 msgid ""
 "Use commit stored in the index instead of the one stored in the submodule "
 "HEAD"
-msgstr ""
+msgstr "하위 모듈 HEAD에 저장된 커밋 대신 인덱스에 저장된 커밋을 사용합니다"
 
 #: builtin/submodule--helper.c:679
 msgid "recurse into nested submodules"
@@ -13948,7 +13950,7 @@ msgstr "파일 시스템 시험 없이 추적하지 않는 캐시를 사용합�
 
 #: builtin/update-index.c:1022
 msgid "write out the index even if is not flagged as changed"
-msgstr ""
+msgstr "변경된 것으로 표시되지 않은 경우에도 인덱스에 씁니다"
 
 #: builtin/update-index.c:1024
 msgid "enable or disable file system monitor"
@@ -13961,7 +13963,7 @@ msgstr "파일 시스템 모니터링 기능이 변경사항을 확인하는 비
 
 #: builtin/update-index.c:1029
 msgid "clear fsmonitor valid bit"
-msgstr ""
+msgstr "파일 시스템 모니터링 기능이 변경사항을 확인하는 비트를 지웁니다"
 
 #: builtin/update-index.c:1127
 msgid ""
@@ -14012,7 +14014,7 @@ msgstr ""
 
 #: builtin/update-index.c:1175
 msgid "fsmonitor enabled"
-msgstr ""
+msgstr "파일 시스템 모니터가 켜졌습니다"
 
 #: builtin/update-index.c:1178
 msgid ""
@@ -14023,7 +14025,7 @@ msgstr ""
 
 #: builtin/update-index.c:1182
 msgid "fsmonitor disabled"
-msgstr ""
+msgstr "파일 시스템 모니터가 꺼졌습니다"
 
 #: builtin/update-ref.c:10
 msgid "git update-ref [<options>] -d <refname> [<old-val>]"
@@ -14595,7 +14597,7 @@ msgstr "?? 무슨 소리인지 모르겠습니다?"
 
 #: git-bisect.sh:453
 msgid "bisect run failed: no command provided."
-msgstr ""
+msgstr "이등분 실행이 실패했습니다: 주어진 명령어가 없습니다."
 
 #: git-bisect.sh:458
 #, sh-format
@@ -14875,7 +14877,7 @@ msgstr "$ref_stash을(를) $w_commit(으)로 업데이트할 수 없습니다"
 #: git-stash.sh:281
 #, sh-format
 msgid "error: unknown option for 'stash push': $option"
-msgstr ""
+msgstr "오류: 'stash push'에 대해 알 수 없는 옵션: $option"
 
 #: git-stash.sh:295
 msgid "Can't use --patch and --include-untracked or --all at the same time"
