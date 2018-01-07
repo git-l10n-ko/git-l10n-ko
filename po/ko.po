@@ -34,10 +34,11 @@
 #  | committer    | 커미터                                       |
 #  | conflict     | 충돌                                         |
 #  | fast-forward | 정방향 진행                                  |
+#  | fsmonitor    | 파일 시스템 모니터                           |
+#  | Git          | 깃                                           |
 #  | head         | 헤드                                         |
 #  | hook         | 훅                                           |
 #  | history      | (커밋) 내역                                  |
-#  | Git          | 깃                                           |
 #  | log          | 기록                                         |
 #  | merge        | 병합                                         |
 #  | note         | 노트                                         |
@@ -9889,10 +9890,8 @@ msgid "use lowercase letters for 'assume unchanged' files"
 msgstr "'변경되지 않았다고 가정' 파일에 소문자를 사용합니다"
 
 #: builtin/ls-files.c:521
-#, fuzzy
-#| msgid "use lowercase letters for 'assume unchanged' files"
 msgid "use lowercase letters for 'fsmonitor clean' files"
-msgstr "'변경되지 않았다고 가정' 파일에 소문자를 사용합니다"
+msgstr "'파일 시스템 모니터에 변경되지 않은' 파일에 소문자를 사용합니다"
 
 #: builtin/ls-files.c:523
 msgid "show cached files in the output (default)"
@@ -11920,16 +11919,12 @@ msgid "make rebase script"
 msgstr "리베이스 스크립트를 만듭니다"
 
 #: builtin/rebase--helper.c:32
-#, fuzzy
-#| msgid "shorten SHA-1s in the todo list"
 msgid "shorten commit ids in the todo list"
-msgstr "할 일 목록의 SHA-1을 줄입니다"
+msgstr "할 일 목록의 커밋 아이디를 줄입니다."
 
 #: builtin/rebase--helper.c:34
-#, fuzzy
-#| msgid "expand SHA-1s in the todo list"
 msgid "expand commit ids in the todo list"
-msgstr "할 일 목록의 SHA-1을 늘입니다"
+msgstr "할 일 목록의 커밋 아이디를 늘입니다."
 
 #: builtin/rebase--helper.c:36
 msgid "check the todo list"
@@ -11943,11 +11938,10 @@ msgstr "불필요한 빼오기를 건너뜁니다"
 msgid "rearrange fixup/squash lines"
 msgstr "fixup/squash 줄 재구성"
 
+# English Text에서는 insert를 사용하지만, 소스코드에는 add로 표현되어 있습니다.
 #: builtin/rebase--helper.c:42
-#, fuzzy
-#| msgid "expand SHA-1s in the todo list"
 msgid "insert exec commands in todo list"
-msgstr "할 일 목록의 SHA-1을 늘입니다"
+msgstr "할 일 목록에 실행 명령을 추가합니다"
 
 #: builtin/receive-pack.c:30
 msgid "git receive-pack <git-dir>"
@@ -12838,10 +12832,9 @@ msgid "object filtering requires --objects"
 msgstr "오브젝트 필터링은 --objects 옵션이 필요합니다"
 
 #: builtin/rev-list.c:402
-#, fuzzy, c-format
-#| msgid "invalid color value: %.*s"
+#, c-format
 msgid "invalid sparse value '%s'"
-msgstr "잘못된 색 값: %.*s"
+msgstr "잘못된 드문 값 '%s'"
 
 #: builtin/rev-list.c:442
 msgid "rev-list does not support display of notes"
@@ -13363,10 +13356,9 @@ msgid "no submodule mapping found in .gitmodules for path '%s'"
 msgstr "경로 '%s'에 대해 .gitmodules에 있는 하위모듈 매핑이 없습니다"
 
 #: builtin/submodule--helper.c:626
-#, fuzzy, c-format
-#| msgid "could not recurse into submodule '%s'"
+#, c-format
 msgid "could not resolve HEAD ref inside the submodule '%s'"
-msgstr "재귀적으로 '%s' 하위 모듈에 들어갈 수 없습니다"
+msgstr "HEAD 레퍼런스를 '%s' 하위 모듈 안에서 찾을 수 없습니다"
 
 #: builtin/submodule--helper.c:653
 #, c-format
@@ -13374,10 +13366,8 @@ msgid "failed to recurse into submodule '%s'"
 msgstr "재귀적으로 '%s' 하위 모듈에 들어갈 수 없습니다"
 
 #: builtin/submodule--helper.c:677
-#, fuzzy
-#| msgid "prepend this to submodule path output"
 msgid "Suppress submodule status output"
-msgstr "하위 모듈 경로 출력의 앞에 이 디렉터리를 붙입니다"
+msgstr "하위 모듈 상태를 출력하지 않습니다"
 
 #: builtin/submodule--helper.c:678
 msgid ""
@@ -13965,10 +13955,9 @@ msgid "enable or disable file system monitor"
 msgstr "파일 시스템 모니터를 켜거나 끕니다"
 
 #: builtin/update-index.c:1026
-#, fuzzy
-#| msgid "mark files as \"not changing\""
 msgid "mark files as fsmonitor valid"
-msgstr "파일을 \"바꾸지 않음\"으로 표시합니다"
+msgstr "파일 시스템 모니터링 기능이 변경사항을 확인하는 비트를 파일에 표시합니"
+"다"
 
 #: builtin/update-index.c:1029
 msgid "clear fsmonitor valid bit"
@@ -14016,29 +14005,21 @@ msgid "Untracked cache enabled for '%s'"
 msgstr "'%s'에 대해 추적되지 않는 캐시를 사용하지 않습니다"
 
 #: builtin/update-index.c:1171
-#, fuzzy
-#| msgid ""
-#| "core.splitIndex is set to false; remove or change it, if you really want "
-#| "to enable split index"
 msgid "core.fsmonitor is unset; set it if you really want to enable fsmonitor"
 msgstr ""
-"core.splitIndex 값이 거짓입니다. 정말로 스플릿 인덱스를 사용하려면 이 값을 제"
-"거하거나 바꾸십시오."
+"core.fsmonitor가 설정되지 않았습니다. 정말로 파일 시스템 모니터를 사용하려면 "
+"설정하십시오"
 
 #: builtin/update-index.c:1175
 msgid "fsmonitor enabled"
 msgstr ""
 
 #: builtin/update-index.c:1178
-#, fuzzy
-#| msgid ""
-#| "core.splitIndex is set to true; remove or change it, if you really want "
-#| "to disable split index"
 msgid ""
 "core.fsmonitor is set; remove it if you really want to disable fsmonitor"
 msgstr ""
-"core.splitIndex 값이 참입니다. 정말로 스플릿 인덱스를 사용하지 않으려면 이 값"
-"을 제거하거나 바꾸십시오."
+"core.fsmonitor가 설정되어 있습니다. 정말로 파일 시스템 모니터를 사용하지 않으"
+"려면 설정을 제거하십시오"
 
 #: builtin/update-index.c:1182
 msgid "fsmonitor disabled"
@@ -14214,10 +14195,8 @@ msgid "set up tracking mode (see git-branch(1))"
 msgstr "추적 모드를 설정합니다 (git-branch(1) 참고)"
 
 #: builtin/worktree.c:380
-#, fuzzy
-#| msgid "upstream branch '%s' not stored as a remote-tracking branch"
 msgid "try to match the new branch name with a remote-tracking branch"
-msgstr "업스트림 '%s' 브랜치가 리모트 추적 브랜치로 저장되지 않았습니다"
+msgstr "새 브랜치 이름과 리모트 추적 브랜치를 일치 시킵니다"
 
 #: builtin/worktree.c:388
 msgid "-b, -B, and --detach are mutually exclusive"
