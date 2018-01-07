@@ -144,7 +144,7 @@ msgstr ""
 "주의: '%s' 체크아웃하기.\n"
 "\n"
 "지금 'HEAD가 분리된' 상태입니다. 이 상태에서는 여기저기 돌아보고,\n"
-"실험적으로 바꾼고 커밋하더라도, 체크아웃할 수 잇는 다른 브랜치에\n"
+"실험적으로 바꾸고 커밋하더라도, 체크아웃할 수 있는 다른 브랜치에\n"
 "영향을 미치지 않고 변경 사항을 잃어버릴 수 있습니다.\n"
 "\n"
 "커밋을 유지하는 브랜치를 새로 만드려면, (지금이든 나중이든) 체크아웃\n"
@@ -3067,7 +3067,7 @@ msgstr "%s: 새 인덱스 파일을 쓸 수 없습니다"
 
 #: sequencer.c:496
 msgid "could not resolve HEAD commit"
-msgstr "HEAD 커밋을 처리할 수 없습니다"
+msgstr "HEAD 커밋을 찾을 수 없습니다"
 
 #: sequencer.c:516
 msgid "unable to update cache tree"
