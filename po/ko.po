@@ -1713,9 +1713,8 @@ msgid "git fetch-pack: expected shallow list"
 msgstr "git fetch-pack: 얕은 목록을 예상함"
 
 #: fetch-pack.c:265
-#, fuzzy
 msgid "git fetch-pack: expected ACK/NAK, got a flush packet"
-msgstr "git fetch-pack: ACK/NAK가 와야 하지만, '%s'을(를) 받았습니다"
+msgstr "git fetch-pack: ACK/NAK가 와야 하지만, 플러시 패킷을 받았습니다"
 
 #: fetch-pack.c:284 builtin/archive.c:63
 #, c-format
@@ -2066,9 +2065,8 @@ msgid "invalid date format: %s"
 msgstr "시각 형식이 잘못되었습니다: %s"
 
 #: list-objects-filter-options.c:36
-#, fuzzy
 msgid "multiple filter-specs cannot be combined"
-msgstr "여러 개의 오브젝트 필터 종류는 결합될 수 없습니다"
+msgstr "여러 개의 필터 양식은 결합될 수 없습니다"
 
 #: list-objects-filter-options.c:126
 msgid "cannot change partial clone promisor remote"
@@ -2906,9 +2904,9 @@ msgid "Your branch is up to date with '%s'.\n"
 msgstr "브랜치가 '%s'에 맞게 업데이트된 상태입니다.\n"
 
 #: remote.c:2143
-#, fuzzy, c-format
+#, c-format
 msgid "Your branch and '%s' refer to different commits.\n"
-msgstr "브랜치가 '%s'보다 %d개 커밋만큼 앞에 있습니다.\n"
+msgstr "현재 브랜치와 '%s'이(가) 다른 커밋을 레퍼런스합니다.\n"
 
 #: remote.c:2146
 #, c-format
@@ -2980,9 +2978,8 @@ msgstr ""
 "이 경고는 `git config advice.ignoredHook false` 명령으로 끌 수 있습니다."
 
 #: send-pack.c:141
-#, fuzzy
 msgid "unexpected flush packet while reading remote unpack status"
-msgstr "리모트 묶음 풀기 상태를 파싱할 수 없습니다: %s"
+msgstr "리모트 묶음 풀기 상태를 읽는 동안 발생한 예상치 못한 플러시 패킷"
 
 #: send-pack.c:143
 #, c-format
@@ -3018,9 +3015,9 @@ msgid "the receiving end does not support push options"
 msgstr "받는 쪽에서 푸시 옵션을 지원하지 않습니다"
 
 #: sequencer.c:158
-#, fuzzy, c-format
+#, c-format
 msgid "invalid commit message cleanup mode '%s'"
-msgstr "잘못된 정리 모드 %s"
+msgstr "잘못된 커밋 메시지 정리 모드 '%s'"
 
 #: sequencer.c:267
 msgid "revert"
