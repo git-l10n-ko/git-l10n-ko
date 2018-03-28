@@ -45,6 +45,7 @@
 #  | octopus      | 옥토퍼스 (병합 전략)                         |
 #  | pack         | 묶음                                         |
 #  | pathspec     | 경로명세                                     |
+#  | promisor     | 프라미서                                     |
 #  | rebase       | 리베이스                                     |
 #  | ref          | 레퍼런스                                     |
 #  | repo         | 저장소                                       |
@@ -54,6 +55,7 @@
 #  | subcommand   | 하위 명령                                    |
 #  | submodule    | 하위 모듈                                    |
 #  | tree-ish     | 트리-따위                                    |
+#  | work tree    | 작업 폴더                                    |
 #  | working tree | 작업 폴더                                    |
 #  +--------------+----------------------------------------------+
 #
@@ -2070,7 +2072,7 @@ msgstr "여러 개의 필터 양식은 결합될 수 없습니다"
 
 #: list-objects-filter-options.c:126
 msgid "cannot change partial clone promisor remote"
-msgstr ""
+msgstr "프라미서 리모트 저장소로부터 부분 복제를 할 수 없습니다"
 
 #: lockfile.c:151
 #, c-format
@@ -3071,9 +3073,9 @@ msgid "could not write eol to '%s'"
 msgstr "'%s'에 줄바꿈을 쓸 수 없습니다"
 
 #: sequencer.c:356 sequencer.c:2128 sequencer.c:2252
-#, fuzzy, c-format
+#, c-format
 msgid "failed to finalize '%s'"
-msgstr "'%s' 마치는데 실패했습니다."
+msgstr "'%s' 마치는데 실패했습니다"
 
 #: sequencer.c:379 sequencer.c:1340 sequencer.c:2148 builtin/am.c:259
 #: builtin/commit.c:722 builtin/merge.c:1047
@@ -3142,9 +3144,8 @@ msgstr ""
 "  git rebase --continue\n"
 
 #: sequencer.c:915
-#, fuzzy
 msgid "'prepare-commit-msg' hook failed"
-msgstr "커밋 메시지 후크를 검증합니다"
+msgstr "'prepare-commit-msg' 후크가 실패했습니다"
 
 #: sequencer.c:922
 msgid ""
@@ -3232,18 +3233,17 @@ msgid "could not parse HEAD commit"
 msgstr "HEAD 커밋을 파싱할 수 없습니다"
 
 #: sequencer.c:1107 sequencer.c:1673
-#, fuzzy
 msgid "unable to parse commit author"
-msgstr "%s 커밋을 파싱할 수 없습니다"
+msgstr "커밋 작성자를 파싱할 수 없습니다"
 
 #: sequencer.c:1117 builtin/am.c:1630 builtin/merge.c:643
 msgid "git write-tree failed to write a tree"
 msgstr "git write-tree가 트리를 쓰는데 실패했습니다"
 
 #: sequencer.c:1134 sequencer.c:1186
-#, fuzzy, c-format
+#, c-format
 msgid "unable to read commit message from '%s'"
-msgstr "%s의 커밋 메시지를 읽을 수 없습니다"
+msgstr " '%s'의 커밋 메시지를 읽을 수 없습니다"
 
 #: sequencer.c:1154 builtin/am.c:1650 builtin/commit.c:1594 builtin/merge.c:826
 #: builtin/merge.c:851
@@ -3749,9 +3749,9 @@ msgstr ""
 "'git <명령> [<리비전>...] -- [<파일>...]'"
 
 #: setup.c:233
-#, fuzzy, c-format
+#, c-format
 msgid "option '%s' must come before non-option arguments"
-msgstr "첫번째 옵션이 아닌 인자 뒤에 파싱을 중지합니다"
+msgstr "'%s' 옵션은  옵션이 아닌 인자 전에 와야 합니다"
 
 #: setup.c:252
 #, c-format
@@ -3765,13 +3765,12 @@ msgstr ""
 "'git <명령> [<리비전>...] -- [<파일>...]'"
 
 #: setup.c:388
-#, fuzzy
 msgid "unable to set up work tree using invalid config"
-msgstr "현재 작업 디렉터리를 가져올 수 없습니다"
+msgstr "잘못된 설정을 사용하여 작업 폴더를 설정할 수 없습니다"
 
 #: setup.c:395
 msgid "this operation must be run in a work tree"
-msgstr ""
+msgstr "이 작업은 작업 폴더에서 실행해야 합니다"
 
 #: setup.c:506
 #, c-format
@@ -3788,9 +3787,9 @@ msgid "error opening '%s'"
 msgstr "'%s'을(를) 여는데 오류"
 
 #: setup.c:535
-#, fuzzy, c-format
+#, c-format
 msgid "too large to be a .git file: '%s'"
-msgstr "'%s' 입력 파일을 읽을 수 없습니다"
+msgstr ".git 파일이 너무 큽니다: '%s'"
 
 #: setup.c:537
 #, c-format
@@ -3798,14 +3797,14 @@ msgid "error reading %s"
 msgstr "%s을(를) 읽는데 오류"
 
 #: setup.c:539
-#, fuzzy, c-format
+#, c-format
 msgid "invalid gitfile format: %s"
-msgstr "시각 형식이 잘못되었습니다: %s"
+msgstr "깃파일 형식이 잘못되었습니다: %s"
 
 #: setup.c:541
-#, fuzzy, c-format
+#, c-format
 msgid "no path in gitfile: %s"
-msgstr "%s 패치 파일을 열 수 없습니다"
+msgstr "깃파일에 경로가 없습니다: %s"
 
 #: setup.c:543
 #, c-format
@@ -3815,7 +3814,7 @@ msgstr "깃 저장소가 아닙니다: %s"
 #: setup.c:642
 #, c-format
 msgid "'$%s' too big"
-msgstr ""
+msgstr "'$%s' 이(가) 너무 큽니다"
 
 #: setup.c:656
 #, c-format
@@ -3828,19 +3827,18 @@ msgid "cannot chdir to '%s'"
 msgstr "'%s'에 대해 chdir를 할 수 없습니다"
 
 #: setup.c:690 setup.c:746 setup.c:756 setup.c:795 setup.c:803 setup.c:818
-#, fuzzy
 msgid "cannot come back to cwd"
 msgstr "현재 디렉터리로 돌아올 수 없습니다"
 
 #: setup.c:816
-#, fuzzy, c-format
+#, c-format
 msgid "not a git repository (or any of the parent directories): %s"
-msgstr "(현재 폴더 또는 상위 폴더가) 깃 저장소가 아닙니다: %s"
+msgstr "(현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: %s"
 
 #: setup.c:827
-#, fuzzy, c-format
+#, c-format
 msgid "failed to stat '%*s%s%s'"
-msgstr "'%s'에 대해 stat()이 실패했습니다"
+msgstr "'%*s%s%s'에 대해 stat()이 실패했습니다"
 
 #: setup.c:1057
 msgid "Unable to read current working directory"
@@ -3852,17 +3850,18 @@ msgid "cannot change to '%s'"
 msgstr "'%s'에 대해 변경 할 수 없습니다"
 
 #: setup.c:1088
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "not a git repository (or any parent up to mount point %s)\n"
 "Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set)."
 msgstr ""
-"(현재 폴더 또는 마운트 위치 %s까지 상위 폴더가) 깃 저장소가 아닙니다\n"
+"(현재 폴더 또는 상위 폴더 부터 마운트 위치 %s 까지 일부가) 깃 저장소가 아닙니"
+"다\n"
 "파일 시스템 경계에서 중지합니다. (GIT_DISCOVERY_ACROSS_FILESYSTEM 설정되지 않"
 "음)"
 
 #: setup.c:1172
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "problem with core.sharedRepository filemode value (0%.3o).\n"
 "The owner of files must always have read and write permissions."
@@ -3871,9 +3870,8 @@ msgstr ""
 "파일의 소유자에 읽기와 쓰기 권한이 있어야 합니다."
 
 #: setup.c:1215
-#, fuzzy
 msgid "open /dev/null or dup failed"
-msgstr "/dev/null 열기 실패"
+msgstr "/dev/null 열기 또는 dup()이 실패"
 
 #: setup.c:1230
 msgid "fork failed"
@@ -4448,12 +4446,12 @@ msgstr "'%s'을(를) 읽는데 실패했습니다"
 #: worktree.c:291
 #, c-format
 msgid "'%s' at main working tree is not the repository directory"
-msgstr ""
+msgstr "메인 작업 폴더의 '%s'은 저장소 디렉토리가 아닙니다"
 
 #: worktree.c:302
 #, c-format
 msgid "'%s' file does not contain absolute path to the working tree location"
-msgstr ""
+msgstr "'%s' 파일은 작업 폴더 위치의 절대 경로를 가지지 않습니다"
 
 #: worktree.c:314
 #, c-format
@@ -4461,14 +4459,14 @@ msgid "'%s' does not exist"
 msgstr "'%s'이(가) 없습니다"
 
 #: worktree.c:320
-#, fuzzy, c-format
+#, c-format
 msgid "'%s' is not a .git file, error code %d"
-msgstr "'%s'은(는) 잠기지 않았습니다"
+msgstr "'%s'은(는) .git 파일이 아닙니다, 상태 코드가 %d 입니다"
 
 #: worktree.c:328
-#, fuzzy, c-format
+#, c-format
 msgid "'%s' does not point back to '%s'"
-msgstr "'%s'이(가) 커밋을 가리키지 않습니다"
+msgstr "'%s'은(는) '%s'을(를) 가리키지 않습니다"
 
 #: wrapper.c:223 wrapper.c:393
 #, c-format
@@ -4948,7 +4946,7 @@ msgstr "HEAD (브랜치 없음)"
 
 #: wt-status.c:1844
 msgid "different"
-msgstr ""
+msgstr "다름"
 
 #: wt-status.c:1846 wt-status.c:1854
 msgid "behind "
@@ -5338,7 +5336,7 @@ msgstr "패치가 %s %.*s 위치에서 실패했습니다"
 
 #: builtin/am.c:1838
 msgid "Use 'git am --show-current-patch' to see the failed patch"
-msgstr ""
+msgstr "'git am --show-current-patch'를 사용하여 실패한 패치를 볼 수 있습니다"
 
 #: builtin/am.c:1882
 msgid ""
@@ -5487,12 +5485,11 @@ msgstr "원래 브랜치를 복구하고 패치 적용 작업을 중지합니다
 
 #: builtin/am.c:2287
 msgid "abort the patching operation but keep HEAD where it is."
-msgstr ""
+msgstr "패치 작업을 중단하지만 HEAD는 그대로 둡니다"
 
 #: builtin/am.c:2290
-#, fuzzy
 msgid "show the patch being applied."
-msgstr "변경 사항 없음 -- 패치가 이미 적용되었습니다."
+msgstr "적용되는 패치를 보여줍니다"
 
 # NOTE: 옵션의 의미는 이게 맞다. 원문에서는 사용자가
 # --committer-date-is-author-date라는 옵션을 보고 의미를 알 수 있다고 가정하고 있다.
@@ -5565,9 +5562,8 @@ msgid "git archive: Remote with no URL"
 msgstr "git archive: URL 없는 리모트"
 
 #: builtin/archive.c:58
-#, fuzzy
 msgid "git archive: expected ACK/NAK, got a flush packet"
-msgstr "git archive: ACK/NAK가 와야 하지만, EOF를 받았습니다"
+msgstr "git archive: ACK/NAK가 와야 하지만, 플러시 패킷을 받았습니다"
 
 #: builtin/archive.c:61
 #, c-format
@@ -7161,7 +7157,7 @@ msgstr "'%s'의 앞 디렉터리를 만들 수 없습니다"
 #: builtin/clone.c:985
 #, c-format
 msgid "could not create work tree dir '%s'"
-msgstr "작업 디렉터리를('%s') 만들 수 없습니다"
+msgstr "작업 폴더를('%s') 만들 수 없습니다"
 
 #: builtin/clone.c:1005
 #, c-format
@@ -7560,7 +7556,7 @@ msgstr "스태시 정보를 표시합니다"
 
 #: builtin/commit.c:1284 builtin/commit.c:1447
 msgid "compute full ahead/behind values"
-msgstr ""
+msgstr "앞/뒤 값 전체를 계산합니다"
 
 #: builtin/commit.c:1286
 msgid "version"
@@ -8382,7 +8378,7 @@ msgstr "리모트에 이제 없는 리모트 추적 브랜치를 잘라냅니다
 
 #: builtin/fetch.c:141
 msgid "prune local tags no longer on remote and clobber changed tags"
-msgstr ""
+msgstr "리모트 저장소에 없는 로컬 태그를 제거하고 변경된 태크를 적용합니다"
 
 #: builtin/fetch.c:142 builtin/fetch.c:165 builtin/pull.c:126
 msgid "on-demand"
@@ -8564,6 +8560,8 @@ msgstr "%s을(를) 가져올 수 없습니다"
 msgid ""
 "--filter can only be used with the remote configured in core.partialClone"
 msgstr ""
+"--filter 옵션은 core.partialClone에 설정된 리모트 저장소에만 사용할 수 있습니"
+"다"
 
 #: builtin/fetch.c:1350
 msgid ""
@@ -9479,14 +9477,14 @@ msgid "packfile name '%s' does not end with '.pack'"
 msgstr "'%s' 묶음파일 이름이 '.pack'으로 끝나지 않습니다"
 
 #: builtin/index-pack.c:1422
-#, fuzzy, c-format
+#, c-format
 msgid "cannot write %s file '%s'"
-msgstr "'%s' 보존 파일을 쓸 수 없습니다"
+msgstr "%s 파일을 쓸 수 없습니다 '%s'"
 
 #: builtin/index-pack.c:1430
-#, fuzzy, c-format
+#, c-format
 msgid "cannot close written %s file '%s'"
-msgstr "쓴 '%s' 보존 파일을 닫지 못했습니다"
+msgstr "쓴 %s파일을 닫을 수 없습니다 '%s'"
 
 #: builtin/index-pack.c:1454
 msgid "error while closing pack file"
@@ -11515,7 +11513,7 @@ msgstr "없는 오브젝트를 처리합니다"
 
 #: builtin/pack-objects.c:3039
 msgid "do not pack objects in promisor packfiles"
-msgstr ""
+msgstr "프라미서 묶음 파일에 오브젝트를 묶지 않습니다"
 
 #: builtin/pack-objects.c:3178
 msgid "Counting objects"
@@ -11555,7 +11553,7 @@ msgstr "<시각>보다 오래 된 오브젝트를 만료합니다"
 
 #: builtin/prune.c:112
 msgid "limit traversal to objects outside promisor packfiles"
-msgstr ""
+msgstr "프라미서 묶음파일 밖에서 오브젝트 찾지 않습니다"
 
 #: builtin/prune.c:126
 msgid "cannot prune in a precious-objects repo"
@@ -11918,7 +11916,7 @@ msgid ""
 "    git push <name>\n"
 msgstr ""
 "푸시 대상을 설정하지 않았습니다.\n"
-"명령해에서 URL을 지정하거나 다음을 사용해 리모트 저장소를 설정하십시오\n"
+"명령행에서 URL을 지정하거나 다음을 사용해 리모트 저장소를 설정하십시오\n"
 "\n"
 "    git remote add <이름> <URL>\n"
 "\n"
@@ -12180,11 +12178,11 @@ msgid ""
 msgstr ""
 "기본값으로 간략한 저장소가 아닌 현재 브랜치의 업데이트는 거부됩니다.\n"
 "업데이트하면 인덱스와 작업 트리가 푸시한 내용과 일치하지 않게 되므로,\n"
-"'git reset --hard'로 작업 트리를 HEAD에 맞춰야 합니다.\n"
+"'git reset --hard'로 작업 폴더를 HEAD에 맞춰야 합니다.\n"
 "\n"
 "리모트 저장소에서 'receive.denyCurrentBranch' 설정 변수를 'ignore'나\n"
 "'warn'으로 설정하면 현재 브랜치로 푸시할 수 있습니다. 하지만 작업\n"
-"트리의 내용을 푸시할 내용에 맞추는 게 아니라면 추천하지 않습니다.\n"
+"폴더의 내용을 푸시할 내용에 맞추는 게 아니라면 추천하지 않습니다.\n"
 "\n"
 "이 메시지를 보지 않고 기본 동작을 계속 하려면,\n"
 "'receive.denyCurrentBranch' 설정 변수를 'refuse'로 설정하십시오."
@@ -13513,7 +13511,7 @@ msgstr "전체 레퍼런스 이름이 필요하지만, 입력은 %s"
 
 #: builtin/submodule--helper.c:59
 msgid "submodule--helper print-default-remote takes no arguments"
-msgstr ""
+msgstr "submodule--helper print-default-remote 옵션은 인자가 필요하지 않습니다"
 
 #: builtin/submodule--helper.c:96
 #, c-format
@@ -13612,51 +13610,51 @@ msgid "Synchronizing submodule url for '%s'\n"
 msgstr "하위 모듈 URL을 '%s'에 대해 동기화\n"
 
 #: builtin/submodule--helper.c:812
-#, fuzzy, c-format
+#, c-format
 msgid "failed to register url for submodule path '%s'"
 msgstr "하위 모듈 경로 '%s'에 대한 URL을 등록하는데 실패했습니다"
 
 #: builtin/submodule--helper.c:826
-#, fuzzy, c-format
+#, c-format
 msgid "failed to get the default remote for submodule '%s'"
-msgstr "'%s' 하위 모듈에 대해 업데이트 모드 등록이 실패했습니다"
+msgstr ""
+"하위 모듈 경로 '%s'에 대한 기본 리모트 (저장소)를 가져오는데 실패했습니다"
 
 #: builtin/submodule--helper.c:837
-#, fuzzy, c-format
+#, c-format
 msgid "failed to update remote for submodule '%s'"
-msgstr "'%s' 하위 모듈에 대해 업데이트 모드 등록이 실패했습니다"
+msgstr ""
+"하위 모듈 경로 '%s'에 대한 리모트 (저장소)를 업데이트하는데 실패했습니다"
 
 #: builtin/submodule--helper.c:885
-#, fuzzy
 msgid "Suppress output of synchronizing submodule url"
-msgstr "하위 모듈 초기화에 출력을 하지 않습니다"
+msgstr "하위 모듈 URL 동기화 출력 표시하지 않습니다"
 
 #: builtin/submodule--helper.c:887
-#, fuzzy
 msgid "Recurse into nested submodules"
-msgstr "내장된 하위 모듈에 재귀적으로 적용"
+msgstr "중첩된 하위 모듈에 재귀적으로 적용합니다"
 
 #: builtin/submodule--helper.c:892
 msgid "git submodule--helper sync [--quiet] [--recursive] [<path>]"
 msgstr "git submodule--helper sync [--quiet] [--recursive] [<경로>]"
 
 #: builtin/submodule--helper.c:946
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "Submodule work tree '%s' contains a .git directory (use 'rm -rf' if you "
 "really want to remove it including all of its history)"
 msgstr ""
-"하위 모듈 작업 폴더 '$displaypath'에 .git 디렉터리가 들어 있습니다\n"
-"(정말로 그 커밋 내역까지 포함해 제거하려면 'rm -rf'를 사용하십시오)"
+"하위 모듈 작업 폴더 '%s'에 .git 디렉토리가 있습니다 (정말로 모든 커밋 내역을 "
+"포함하여 제거하려면 'rm -rf'를 사용하십시오)"
 
 #: builtin/submodule--helper.c:958
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "Submodule work tree '%s' contains local modifications; use '-f' to discard "
 "them"
 msgstr ""
-"하위 모듈 작업 폴더에 ('$displaypath') 로컬 수정 사항이 있습니다. 버리려면 '-"
-"f'를 사용하십시오"
+"하위 모듈 작업 폴더 '%s'에 로컬 수정 사항이 있습니다. 버리려면 '-f'를 사용하"
+"십시오"
 
 #: builtin/submodule--helper.c:966
 #, c-format
@@ -13664,9 +13662,9 @@ msgid "Cleared directory '%s'\n"
 msgstr "'%s' 디렉터리를 지웁니다\n"
 
 #: builtin/submodule--helper.c:968
-#, fuzzy, c-format
+#, c-format
 msgid "Could not remove submodule work tree '%s'\n"
-msgstr "하위 모듈 디렉터리를 ('$displaypath') 제거할 수 없습니다"
+msgstr "하위 모듈 작업 폴더  '%s' 을(를) 제거할 수 없습니다\n"
 
 #: builtin/submodule--helper.c:977
 #, c-format
@@ -13674,18 +13672,17 @@ msgid "could not create empty submodule directory %s"
 msgstr "빈 하위 모듈 디렉터리를 %s을(를) 만들 수 없습니다"
 
 #: builtin/submodule--helper.c:993
-#, fuzzy, c-format
+#, c-format
 msgid "Submodule '%s' (%s) unregistered for path '%s'\n"
-msgstr "'%3$s' 경로에 대해 '%1$s' (%2$s) 하위 모듈 등록\n"
+msgstr "'%s' 하위 모듈이 (%s) '%s' 경로에 대해 등록되지 않았습니다\n"
 
 #: builtin/submodule--helper.c:1022
 msgid "Remove submodule working trees even if they contain local changes"
-msgstr ""
+msgstr "로컬 변경 사항이 있어도 하위 모듈 작업 폴더를 제거합니다"
 
 #: builtin/submodule--helper.c:1023
-#, fuzzy
 msgid "Unregister all submodules"
-msgstr "하위 모듈에 재귀적으로 적용"
+msgstr "모든 하위 모듈을 목록에서 제거합니다"
 
 #: builtin/submodule--helper.c:1028
 msgid ""
@@ -13983,9 +13980,8 @@ msgid "tag message"
 msgstr "태그 메시지"
 
 #: builtin/tag.c:394
-#, fuzzy
 msgid "force edit of tag message"
-msgstr "커밋 편집을 강제합니다"
+msgstr "강제로 태그 메시지를 편집합니다"
 
 #: builtin/tag.c:395
 msgid "annotated and GPG-signed tag"
@@ -14090,7 +14086,7 @@ msgstr "%s 디렉터리 만들기 실패했습니다"
 #: builtin/update-index.c:88
 #, c-format
 msgid "failed to stat %s"
-msgstr "%s에 stat()하는데 실패했습니다"
+msgstr "%s 에 대해 stat()이 실패했습니다"
 
 #: builtin/update-index.c:98
 #, c-format
@@ -14409,9 +14405,8 @@ msgid "print tag contents"
 msgstr "태그 내용 표시"
 
 #: builtin/worktree.c:17
-#, fuzzy
 msgid "git worktree add [<options>] <path> [<commit-ish>]"
-msgstr "git worktree add [<옵션>] <경로> [<브랜치>]"
+msgstr "git worktree add [<옵션>] <경로> [<커밋-따위>]"
 
 #: builtin/worktree.c:18
 msgid "git worktree list [<options>]"
@@ -14422,18 +14417,16 @@ msgid "git worktree lock [<options>] <path>"
 msgstr "git worktree lock [<옵션>] <경로>"
 
 #: builtin/worktree.c:20
-#, fuzzy
 msgid "git worktree move <worktree> <new-path>"
-msgstr "git worktree lock [<옵션>] <경로>"
+msgstr "git worktree move <작업트리> <새-경로>"
 
 #: builtin/worktree.c:21
 msgid "git worktree prune [<options>]"
 msgstr "git worktree prune [<옵션>]"
 
 #: builtin/worktree.c:22
-#, fuzzy
 msgid "git worktree remove [<options>] <worktree>"
-msgstr "git worktree lock [<옵션>] <경로>"
+msgstr "git worktree remove [<옵션>] <작업트리>"
 
 #: builtin/worktree.c:23
 msgid "git worktree unlock <path>"
@@ -14563,7 +14556,7 @@ msgstr "'%s'은(는) 잠기지 않았습니다"
 
 #: builtin/worktree.c:645
 msgid "working trees containing submodules cannot be moved or removed"
-msgstr ""
+msgstr "하위 모듈이 포함된 작업 폴더는 옮기거나 제거할 수 없습니다"
 
 #: builtin/worktree.c:672 builtin/worktree.c:811
 #, c-format
@@ -14571,9 +14564,9 @@ msgid "'%s' is a main working tree"
 msgstr "'%s'은(는) 메인 작업 폴더입니다"
 
 #: builtin/worktree.c:677
-#, fuzzy, c-format
+#, c-format
 msgid "could not figure out destination name from '%s'"
-msgstr "'%s'에서 '%s'(으)로 git 디렉터리를 옮겨올 수 없습니다"
+msgstr "'%s'에서 대상 이름을 찾을 수 없습니다"
 
 #: builtin/worktree.c:683
 #, c-format
@@ -14592,27 +14585,27 @@ msgstr "잠긴 작업 폴더를 옮길 수 없습니다"
 #: builtin/worktree.c:695
 #, c-format
 msgid "validation failed, cannot move working tree: %s"
-msgstr ""
+msgstr "유효성 검사에 실패하여, 작업 폴더를 옮길 수 없습니다: %s"
 
 #: builtin/worktree.c:700
-#, fuzzy, c-format
+#, c-format
 msgid "failed to move '%s' to '%s'"
-msgstr "'%s'을(를) 여는데 실패: %s"
+msgstr "'%s'을(를) '%s'(으)로 옮기는데 실패했습니다"
 
 #: builtin/worktree.c:748
-#, fuzzy, c-format
+#, c-format
 msgid "failed to run 'git status' on '%s'"
-msgstr "'%s'에 쓰는데 실패했습니다"
+msgstr "'%s'에(서) 'git status'를 실행하는데 실패했습니다"
 
 #: builtin/worktree.c:752
 #, c-format
 msgid "'%s' is dirty, use --force to delete it"
-msgstr ""
+msgstr "'%s' 이 변경 되었습니다,  삭제하려면 --force를 사용하십시오"
 
 #: builtin/worktree.c:757
-#, fuzzy, c-format
+#, c-format
 msgid "failed to run 'git status' on '%s', code %d"
-msgstr "하위 모듈 '%s'에서 'git status'를 실행할 수 없습니다"
+msgstr "'%s'에(서) 'git status'를 실행하는데 실패했습니다,  코드 %d"
 
 #: builtin/worktree.c:768 builtin/worktree.c:782
 #, c-format
@@ -14620,9 +14613,8 @@ msgid "failed to delete '%s'"
 msgstr "'%s'을(를) 삭제하는데 실패했습니다"
 
 #: builtin/worktree.c:794
-#, fuzzy
 msgid "force removing even if the worktree is dirty"
-msgstr "대상이 이미 있어도 강제로 옮기기/이름 바꾸기를 합니다"
+msgstr "작업트리에 변경사항이 있더라도 강제로 제거합니다"
 
 #: builtin/worktree.c:815
 #, c-format
@@ -14636,7 +14628,7 @@ msgstr "잠긴 작업 폴더를 제거할 수 없습니다"
 #: builtin/worktree.c:820
 #, c-format
 msgid "validation failed, cannot remove working tree: %s"
-msgstr ""
+msgstr "유효성 검사에 실패하여, 작업 폴더를 제거할 수 없습니다: %s"
 
 #: builtin/write-tree.c:14
 msgid "git write-tree [--missing-ok] [--prefix=<prefix>/]"
@@ -14700,6 +14692,11 @@ msgid ""
 "           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]\n"
 "           <command> [<args>]"
 msgstr ""
+"git [--version] [--help] [-C <경로>] [-c <이름>=<값>]\n"
+"           [--exec-path[=<경로>]] [--html-path] [--man-path] [--info-path]\n"
+"           [-p | --paginate | --no-pager] [--no-replace-objects] [--bare]\n"
+"           [--git-dir=<경로>] [--work-tree=<경로>] [--namespace=<이름>]\n"
+"           <명령> [<인자>]"
 
 #: git.c:15
 msgid ""
@@ -14714,47 +14711,47 @@ msgstr ""
 #: git.c:95
 #, c-format
 msgid "no directory given for --git-dir\n"
-msgstr ""
+msgstr "--git-dir에 대한 주어진 디렉토리가 없습니다\n"
 
 #: git.c:109
 #, c-format
 msgid "no namespace given for --namespace\n"
-msgstr ""
+msgstr "--namespace에 대한 주어진 네임 스페이스가 없습니다\n"
 
 #: git.c:123
 #, c-format
 msgid "no directory given for --work-tree\n"
-msgstr ""
+msgstr "--work-tree에 대한 주어진 디렉토리가 없습니다\n"
 
 #: git.c:137
-#, fuzzy, c-format
+#, c-format
 msgid "no prefix given for --super-prefix\n"
-msgstr "%s에서 --super-prefix 옵션을 지원하지 않습니다"
+msgstr "--super-prefix에 대한 접두어가 주어지지 않았습니다\n"
 
 #: git.c:159
 #, c-format
 msgid "-c expects a configuration string\n"
-msgstr ""
+msgstr "-c는 옵션에는 설정 문자열이 와야 합니다\n"
 
 #: git.c:197
 #, c-format
 msgid "no directory given for -C\n"
-msgstr ""
+msgstr "-C 옵션에 주어진 디렉토리가 없습니다\n"
 
 #: git.c:212
-#, fuzzy, c-format
+#, c-format
 msgid "unknown option: %s\n"
-msgstr "알 수 없는 옵션: %s"
+msgstr "알 수 없는 옵션: %s\n"
 
 #: git.c:687
 #, c-format
 msgid "expansion of alias '%s' failed; '%s' is not a git command\n"
-msgstr ""
+msgstr "별칭 '%s'의 확장에 실패했습니다; '%s'은 (는) 깃 명령이 아닙니다\n"
 
 #: git.c:699
-#, fuzzy, c-format
+#, c-format
 msgid "failed to run command '%s': %s\n"
-msgstr "'%s'을(를) 여는데 실패: %s"
+msgstr "'%s'을(를) 여는데 실패: %s\n"
 
 #: http.c:342
 #, c-format
@@ -16376,19 +16373,19 @@ msgid "Stash this hunk [y,n,q,a,d%s,?]? "
 msgstr "이 부분 스태시합니까 [y,n,q,a,d%s,?]? "
 
 #: git-add--interactive.perl:1393
-#, fuzzy, perl-format
+#, perl-format
 msgid "Unstage mode change [y,n,q,a,d%s,?]? "
-msgstr "모드 변경 스태시 해제합니까 [y,n,q,a,d,/%s,?]? "
+msgstr "모드 변경을 스테이지 해제합니까 [y,n,q,a,d%s,?]? "
 
 #: git-add--interactive.perl:1394
-#, fuzzy, perl-format
+#, perl-format
 msgid "Unstage deletion [y,n,q,a,d%s,?]? "
-msgstr "삭제 스태시 해제합니까 [y,n,q,a,d,/%s,?]? "
+msgstr "삭제를 스테이지 해제합니까 [y,n,q,a,d%s,?]? "
 
 #: git-add--interactive.perl:1395
-#, fuzzy, perl-format
+#, perl-format
 msgid "Unstage this hunk [y,n,q,a,d%s,?]? "
-msgstr "이 부분 스태시 해제합니까 [y,n,q,a,d,/%s,?]? "
+msgstr "이 부분을 스테이지 해제합니까 [y,n,q,a,d%s,?]? "
 
 #: git-add--interactive.perl:1398
 #, perl-format
@@ -16452,7 +16449,7 @@ msgstr "이 부분을 인덱스와 작업 폴더에 적용합니까 [y,n,q,a,d%s
 
 #: git-add--interactive.perl:1515
 msgid "No other hunks to goto\n"
-msgstr ""
+msgstr "이동할 부분이 없습니다\n"
 
 #: git-add--interactive.perl:1522
 msgid "go to which hunk (<ret> to see more)? "
@@ -16475,7 +16472,7 @@ msgstr[0] "미안합니다. 부분이 %d개 밖에 없습니다.\n"
 
 #: git-add--interactive.perl:1564
 msgid "No other hunks to search\n"
-msgstr ""
+msgstr "검색할 부분이 없습니다\n"
 
 #: git-add--interactive.perl:1568
 msgid "search for regex? "
@@ -16589,6 +16586,7 @@ msgid ""
 "`batch-size` and `relogin` must be specified together (via command-line or "
 "configuration option)\n"
 msgstr ""
+"`batch-size`와 `relogin`은 같이 지정해야 합니다 (명령행 또는 설정 옵션)\n"
 
 #: git-send-email.perl:456
 #, perl-format
