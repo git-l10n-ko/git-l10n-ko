@@ -9,14 +9,14 @@ get_actual_refs () {
 		/wanted-refs/d
 		/0001/d
 		p
-		}' <out | test-pkt-line unpack >actual_refs
+		}' <out | test-tool pkt-line unpack >actual_refs
 }
 
 get_actual_commits () {
 	sed -n -e '/packfile/,/0000/{
 		/packfile/d
 		p
-		}' <out | test-pkt-line unpack-sideband >o.pack &&
+		}' <out | test-tool pkt-line unpack-sideband >o.pack &&
 	git index-pack o.pack &&
 	git verify-pack -v o.idx | grep commit | cut -c-40 | sort >actual_commits
 }
@@ -48,20 +48,20 @@ test_expect_success 'setup repository' '
 '
 
 test_expect_success 'config controls ref-in-want advertisement' '
-	git serve --advertise-capabilities >out &&
+	test-tool serve-v2 --advertise-capabilities >out &&
 	! grep -a ref-in-want out &&
 
 	git config uploadpack.allowRefInWant false &&
-	git serve --advertise-capabilities >out &&
+	test-tool serve-v2 --advertise-capabilities >out &&
 	! grep -a ref-in-want out &&
 
 	git config uploadpack.allowRefInWant true &&
-	git serve --advertise-capabilities >out &&
+	test-tool serve-v2 --advertise-capabilities >out &&
 	grep -a ref-in-want out
 '
 
 test_expect_success 'invalid want-ref line' '
-	test-pkt-line pack >in <<-EOF &&
+	test-tool pkt-line pack >in <<-EOF &&
 	command=fetch
 	0001
 	no-progress
@@ -70,7 +70,7 @@ test_expect_success 'invalid want-ref line' '
 	0000
 	EOF
 
-	test_must_fail git serve --stateless-rpc 2>out <in &&
+	test_must_fail test-tool serve-v2 --stateless-rpc 2>out <in &&
 	grep "unknown ref" out
 '
 
@@ -80,7 +80,7 @@ test_expect_success 'basic want-ref' '
 	EOF
 	git rev-parse f | sort >expected_commits &&
 
-	test-pkt-line pack >in <<-EOF &&
+	test-tool pkt-line pack >in <<-EOF &&
 	command=fetch
 	0001
 	no-progress
@@ -90,7 +90,7 @@ test_expect_success 'basic want-ref' '
 	0000
 	EOF
 
-	git serve --stateless-rpc >out <in &&
+	test-tool serve-v2 --stateless-rpc >out <in &&
 	check_output
 '
 
@@ -101,7 +101,7 @@ test_expect_success 'multiple want-ref lines' '
 	EOF
 	git rev-parse c d | sort >expected_commits &&
 
-	test-pkt-line pack >in <<-EOF &&
+	test-tool pkt-line pack >in <<-EOF &&
 	command=fetch
 	0001
 	no-progress
@@ -112,7 +112,7 @@ test_expect_success 'multiple want-ref lines' '
 	0000
 	EOF
 
-	git serve --stateless-rpc >out <in &&
+	test-tool serve-v2 --stateless-rpc >out <in &&
 	check_output
 '
 
@@ -122,7 +122,7 @@ test_expect_success 'mix want and want-ref' '
 	EOF
 	git rev-parse e f | sort >expected_commits &&
 
-	test-pkt-line pack >in <<-EOF &&
+	test-tool pkt-line pack >in <<-EOF &&
 	command=fetch
 	0001
 	no-progress
@@ -133,7 +133,7 @@ test_expect_success 'mix want and want-ref' '
 	0000
 	EOF
 
-	git serve --stateless-rpc >out <in &&
+	test-tool serve-v2 --stateless-rpc >out <in &&
 	check_output
 '
 
@@ -143,7 +143,7 @@ test_expect_success 'want-ref with ref we already have commit for' '
 	EOF
 	>expected_commits &&
 
-	test-pkt-line pack >in <<-EOF &&
+	test-tool pkt-line pack >in <<-EOF &&
 	command=fetch
 	0001
 	no-progress
@@ -153,7 +153,7 @@ test_expect_success 'want-ref with ref we already have commit for' '
 	0000
 	EOF
 
-	git serve --stateless-rpc >out <in &&
+	test-tool serve-v2 --stateless-rpc >out <in &&
 	check_output
 '
 
@@ -176,7 +176,7 @@ test_expect_success 'setup repos for change-while-negotiating test' '
 		git clone "http://127.0.0.1:$LIB_HTTPD_PORT/smart/repo" "$LOCAL_PRISTINE" &&
 		cd "$LOCAL_PRISTINE" &&
 		git checkout -b side &&
-		for i in $(seq 1 33); do test_commit s$i; done &&
+		test_commit_bulk --id=s 33 &&
 
 		# Add novel commits to upstream
 		git checkout master &&
@@ -208,7 +208,7 @@ test_expect_success 'server is initially ahead - no ref in want' '
 	cp -r "$LOCAL_PRISTINE" local &&
 	inconsistency master 1234567890123456789012345678901234567890 &&
 	test_must_fail git -C local fetch 2>err &&
-	grep "ERR upload-pack: not our ref" err
+	test_i18ngrep "fatal: remote error: upload-pack: not our ref" err
 '
 
 test_expect_success 'server is initially ahead - ref in want' '
@@ -254,10 +254,8 @@ test_expect_success 'server loses a ref - ref in want' '
 	echo "s/master/raster/" >"$HTTPD_ROOT_PATH/one-time-sed" &&
 	test_must_fail git -C local fetch 2>err &&
 
-	grep "ERR unknown ref refs/heads/raster" err
+	test_i18ngrep "fatal: remote error: unknown ref refs/heads/raster" err
 '
-
-stop_httpd
 
 REPO="$(pwd)/repo"
 LOCAL_PRISTINE="$(pwd)/local_pristine"
@@ -289,7 +287,7 @@ test_expect_success 'setup repos for fetching with ref-in-want tests' '
 		git clone "file://$REPO" "$LOCAL_PRISTINE" &&
 		cd "$LOCAL_PRISTINE" &&
 		git checkout -b side &&
-		for i in $(seq 1 33); do test_commit s$i; done &&
+		test_commit_bulk --id=s 33 &&
 
 		# Add novel commits to upstream
 		git checkout master &&

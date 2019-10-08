@@ -776,8 +776,6 @@ test_expect_success 'checkdiff allows new blank lines' '
 	git diff --check
 '
 
-cat <<EOF >expect
-EOF
 test_expect_success 'whitespace-only changes not reported' '
 	git reset --hard &&
 	echo >x "hello world" &&
@@ -785,7 +783,7 @@ test_expect_success 'whitespace-only changes not reported' '
 	git commit -m "hello 1" &&
 	echo >x "hello  world" &&
 	git diff -b >actual &&
-	test_cmp expect actual
+	test_must_be_empty actual
 '
 
 cat <<EOF >expect
@@ -1804,8 +1802,8 @@ test_expect_success 'only move detection ignores white spaces' '
 	<BOLD;MAGENTA>-a long line to exceed per-line minimum<RESET>
 	<BOLD;MAGENTA>-another long line to exceed per-line minimum<RESET>
 	<RED>-original file<RESET>
-	<BOLD;YELLOW>+<RESET>Q<BOLD;YELLOW>a long line to exceed per-line minimum<RESET>
-	<BOLD;YELLOW>+<RESET>Q<BOLD;YELLOW>another long line to exceed per-line minimum<RESET>
+	<BOLD;CYAN>+<RESET>Q<BOLD;CYAN>a long line to exceed per-line minimum<RESET>
+	<BOLD;CYAN>+<RESET>Q<BOLD;CYAN>another long line to exceed per-line minimum<RESET>
 	<GREEN>+<RESET><GREEN>new file<RESET>
 	EOF
 	test_cmp expected actual
@@ -1829,6 +1827,7 @@ test_expect_success 'compare whitespace delta across moved blocks' '
 	QQQthat has similar lines
 	QQQto previous blocks, but with different indent
 	QQQYetQAnotherQoutlierQ
+	QLine with internal w h i t e s p a c e change
 	EOF
 
 	git add text.txt &&
@@ -1849,6 +1848,7 @@ test_expect_success 'compare whitespace delta across moved blocks' '
 	QQthat has similar lines
 	QQto previous blocks, but with different indent
 	QQYetQAnotherQoutlier
+	QLine with internal whitespace change
 	EOF
 
 	git diff --color --color-moved --color-moved-ws=allow-indentation-change >actual.raw &&
@@ -1858,7 +1858,7 @@ test_expect_success 'compare whitespace delta across moved blocks' '
 		<BOLD>diff --git a/text.txt b/text.txt<RESET>
 		<BOLD>--- a/text.txt<RESET>
 		<BOLD>+++ b/text.txt<RESET>
-		<CYAN>@@ -1,14 +1,14 @@<RESET>
+		<CYAN>@@ -1,15 +1,15 @@<RESET>
 		<BOLD;MAGENTA>-QIndented<RESET>
 		<BOLD;MAGENTA>-QText across<RESET>
 		<BOLD;MAGENTA>-Qsome lines<RESET>
@@ -1873,6 +1873,7 @@ test_expect_success 'compare whitespace delta across moved blocks' '
 		<BOLD;MAGENTA>-QQQthat has similar lines<RESET>
 		<BOLD;MAGENTA>-QQQto previous blocks, but with different indent<RESET>
 		<RED>-QQQYetQAnotherQoutlierQ<RESET>
+		<RED>-QLine with internal w h i t e s p a c e change<RESET>
 		<BOLD;CYAN>+<RESET>QQ<BOLD;CYAN>Indented<RESET>
 		<BOLD;CYAN>+<RESET>QQ<BOLD;CYAN>Text across<RESET>
 		<BOLD;CYAN>+<RESET>QQ<BOLD;CYAN>some lines<RESET>
@@ -1887,9 +1888,28 @@ test_expect_success 'compare whitespace delta across moved blocks' '
 		<BOLD;CYAN>+<RESET>QQ<BOLD;CYAN>that has similar lines<RESET>
 		<BOLD;CYAN>+<RESET>QQ<BOLD;CYAN>to previous blocks, but with different indent<RESET>
 		<GREEN>+<RESET>QQ<GREEN>YetQAnotherQoutlier<RESET>
+		<GREEN>+<RESET>Q<GREEN>Line with internal whitespace change<RESET>
 	EOF
 
 	test_cmp expected actual
+'
+
+test_expect_success 'bogus settings in move detection erroring out' '
+	test_must_fail git diff --color-moved=bogus 2>err &&
+	test_i18ngrep "must be one of" err &&
+	test_i18ngrep bogus err &&
+
+	test_must_fail git -c diff.colormoved=bogus diff 2>err &&
+	test_i18ngrep "must be one of" err &&
+	test_i18ngrep "from command-line config" err &&
+
+	test_must_fail git diff --color-moved-ws=bogus 2>err &&
+	test_i18ngrep "possible values" err &&
+	test_i18ngrep bogus err &&
+
+	test_must_fail git -c diff.colormovedws=bogus diff 2>err &&
+	test_i18ngrep "possible values" err &&
+	test_i18ngrep "from command-line config" err
 '
 
 test_expect_success 'compare whitespace delta incompatible with other space options' '
@@ -1897,6 +1917,117 @@ test_expect_success 'compare whitespace delta incompatible with other space opti
 		--color-moved-ws=allow-indentation-change,ignore-all-space \
 		2>err &&
 	test_i18ngrep allow-indentation-change err
+'
+
+EMPTY=''
+test_expect_success 'compare mixed whitespace delta across moved blocks' '
+
+	git reset --hard &&
+	tr Q_ "\t " <<-EOF >text.txt &&
+	${EMPTY}
+	____too short without
+	${EMPTY}
+	___being grouped across blank line
+	${EMPTY}
+	context
+	lines
+	to
+	anchor
+	____Indented text to
+	_Q____be further indented by four spaces across
+	____Qseveral lines
+	QQ____These two lines have had their
+	____indentation reduced by four spaces
+	Qdifferent indentation change
+	____too short
+	EOF
+
+	git add text.txt &&
+	git commit -m "add text.txt" &&
+
+	tr Q_ "\t " <<-EOF >text.txt &&
+	context
+	lines
+	to
+	anchor
+	QIndented text to
+	QQbe further indented by four spaces across
+	Q____several lines
+	${EMPTY}
+	QQtoo short without
+	${EMPTY}
+	Q_______being grouped across blank line
+	${EMPTY}
+	Q_QThese two lines have had their
+	indentation reduced by four spaces
+	QQdifferent indentation change
+	__Qtoo short
+	EOF
+
+	git -c color.diff.whitespace="normal red" \
+		-c core.whitespace=space-before-tab \
+		diff --color --color-moved --ws-error-highlight=all \
+		--color-moved-ws=allow-indentation-change >actual.raw &&
+	grep -v "index" actual.raw | test_decode_color >actual &&
+
+	cat <<-\EOF >expected &&
+	<BOLD>diff --git a/text.txt b/text.txt<RESET>
+	<BOLD>--- a/text.txt<RESET>
+	<BOLD>+++ b/text.txt<RESET>
+	<CYAN>@@ -1,16 +1,16 @@<RESET>
+	<BOLD;MAGENTA>-<RESET>
+	<BOLD;MAGENTA>-<RESET><BOLD;MAGENTA>    too short without<RESET>
+	<BOLD;MAGENTA>-<RESET>
+	<BOLD;MAGENTA>-<RESET><BOLD;MAGENTA>   being grouped across blank line<RESET>
+	<BOLD;MAGENTA>-<RESET>
+	 <RESET>context<RESET>
+	 <RESET>lines<RESET>
+	 <RESET>to<RESET>
+	 <RESET>anchor<RESET>
+	<BOLD;MAGENTA>-<RESET><BOLD;MAGENTA>    Indented text to<RESET>
+	<BOLD;MAGENTA>-<RESET><BRED> <RESET>	<BOLD;MAGENTA>    be further indented by four spaces across<RESET>
+	<BOLD;MAGENTA>-<RESET><BRED>    <RESET>	<BOLD;MAGENTA>several lines<RESET>
+	<BOLD;BLUE>-<RESET>		<BOLD;BLUE>    These two lines have had their<RESET>
+	<BOLD;BLUE>-<RESET><BOLD;BLUE>    indentation reduced by four spaces<RESET>
+	<BOLD;MAGENTA>-<RESET>	<BOLD;MAGENTA>different indentation change<RESET>
+	<RED>-<RESET><RED>    too short<RESET>
+	<BOLD;CYAN>+<RESET>	<BOLD;CYAN>Indented text to<RESET>
+	<BOLD;CYAN>+<RESET>		<BOLD;CYAN>be further indented by four spaces across<RESET>
+	<BOLD;CYAN>+<RESET>	<BOLD;CYAN>    several lines<RESET>
+	<BOLD;YELLOW>+<RESET>
+	<BOLD;YELLOW>+<RESET>		<BOLD;YELLOW>too short without<RESET>
+	<BOLD;YELLOW>+<RESET>
+	<BOLD;YELLOW>+<RESET>	<BOLD;YELLOW>       being grouped across blank line<RESET>
+	<BOLD;YELLOW>+<RESET>
+	<BOLD;CYAN>+<RESET>	<BRED> <RESET>	<BOLD;CYAN>These two lines have had their<RESET>
+	<BOLD;CYAN>+<RESET><BOLD;CYAN>indentation reduced by four spaces<RESET>
+	<BOLD;YELLOW>+<RESET>		<BOLD;YELLOW>different indentation change<RESET>
+	<GREEN>+<RESET><BRED>  <RESET>	<GREEN>too short<RESET>
+	EOF
+
+	test_cmp expected actual
+'
+
+# Note that the "6" in the expected hunk header below is funny, since we only
+# show 5 lines (the missing one was blank and thus ignored). This is how
+# --ignore-blank-lines behaves even without --function-context, and this test
+# is just checking the interaction of the two features. Don't take it as an
+# endorsement of that output.
+test_expect_success 'combine --ignore-blank-lines with --function-context' '
+	test_write_lines 1 "" 2 3 4 5 >a &&
+	test_write_lines 1    2 3 4   >b &&
+	test_must_fail git diff --no-index \
+		--ignore-blank-lines --function-context a b >actual.raw &&
+	sed -n "/@@/,\$p" <actual.raw >actual &&
+	cat <<-\EOF >expect &&
+	@@ -1,6 +1,4 @@
+	 1
+	 2
+	 3
+	 4
+	-5
+	EOF
+	test_cmp expect actual
 '
 
 test_done

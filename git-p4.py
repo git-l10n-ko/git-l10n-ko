@@ -332,6 +332,8 @@ def p4_check_access(min_expiration=1):
             die_bad_access("p4 error: {0}".format(data))
         else:
             die_bad_access("unknown error")
+    elif code == "info":
+        return
     else:
         die_bad_access("unknown error code {0}".format(code))
 
@@ -735,7 +737,7 @@ def extractLogMessageFromGitCommit(commit):
 
     ## fixme: title is first line of commit, not 1st paragraph.
     foundTitle = False
-    for log in read_pipe_lines("git cat-file commit %s" % commit):
+    for log in read_pipe_lines(["git", "cat-file", "commit", commit]):
        if not foundTitle:
            if len(log) == 1:
                foundTitle = True
@@ -1306,12 +1308,15 @@ class GitLFS(LargeFileSystem):
             return LargeFileSystem.processContent(self, git_mode, relPath, contents)
 
 class Command:
+    delete_actions = ( "delete", "move/delete", "purge" )
+    add_actions = ( "add", "branch", "move/add" )
+
     def __init__(self):
         self.usage = "usage: %prog [options]"
         self.needsGit = True
         self.verbose = False
 
-    # This is required for the "append" cloneExclude action
+    # This is required for the "append" update_shelve action
     def ensure_value(self, attr, value):
         if not hasattr(self, attr) or getattr(self, attr) is None:
             setattr(self, attr, value)
@@ -1856,6 +1861,7 @@ class P4Submit(Command, P4UserMap):
                     filesToAdd.remove(path)
             elif modifier == "C":
                 src, dest = diff['src'], diff['dst']
+                all_files.append(dest)
                 p4_integrate(src, dest)
                 pureRenameCopy.add(dest)
                 if diff['src_sha1'] != diff['dst_sha1']:
@@ -1872,6 +1878,7 @@ class P4Submit(Command, P4UserMap):
                 editedFiles.add(dest)
             elif modifier == "R":
                 src, dest = diff['src'], diff['dst']
+                all_files.append(dest)
                 if self.p4HasMoveCommand:
                     p4_edit(src)        # src must be open before move
                     p4_move(src, dest)  # opens for (move/delete, move/add)
@@ -2523,8 +2530,12 @@ class View(object):
         die( "Error: %s is not found in client spec path" % depot_path )
         return ""
 
+def cloneExcludeCallback(option, opt_str, value, parser):
+    # prepend "/" because the first "/" was consumed as part of the option itself.
+    # ("-//depot/A/..." becomes "/depot/A/..." after option parsing)
+    parser.values.cloneExclude += ["/" + re.sub(r"\.\.\.$", "", value)]
+
 class P4Sync(Command, P4UserMap):
-    delete_actions = ( "delete", "move/delete", "purge" )
 
     def __init__(self):
         Command.__init__(self)
@@ -2547,7 +2558,7 @@ class P4Sync(Command, P4UserMap):
                 optparse.make_option("--use-client-spec", dest="useClientSpec", action='store_true',
                                      help="Only sync files that are included in the Perforce Client Spec"),
                 optparse.make_option("-/", dest="cloneExclude",
-                                     action="append", type="string",
+                                     action="callback", callback=cloneExcludeCallback, type="string",
                                      help="exclude depot path"),
         ]
         self.description = """Imports from Perforce into a git repository.\n
@@ -2612,33 +2623,25 @@ class P4Sync(Command, P4UserMap):
         if self.verbose:
             print("checkpoint finished: " + out)
 
-    def cmp_shelved(self, path, filerev, revision):
-        """ Determine if a path at revision #filerev is the same as the file
-            at revision @revision for a shelved changelist. If they don't match,
-            unshelving won't be safe (we will get other changes mixed in).
+    def isPathWanted(self, path):
+        for p in self.cloneExclude:
+            if p.endswith("/"):
+                if p4PathStartsWith(path, p):
+                    return False
+            # "-//depot/file1" without a trailing "/" should only exclude "file1", but not "file111" or "file1_dir/file2"
+            elif path.lower() == p.lower():
+                return False
+        for p in self.depotPaths:
+            if p4PathStartsWith(path, p):
+                return True
+        return False
 
-            This is comparing the revision that the shelved changelist is *based* on, not
-            the shelved changelist itself.
-        """
-        ret = p4Cmd(["diff2", "{0}#{1}".format(path, filerev), "{0}@{1}".format(path, revision)])
-        if verbose:
-            print("p4 diff2 path %s filerev %s revision %s => %s" % (path, filerev, revision, ret))
-        return ret["status"] == "identical"
-
-    def extractFilesFromCommit(self, commit, shelved=False, shelved_cl = 0, origin_revision = 0):
-        self.cloneExclude = [re.sub(r"\.\.\.$", "", path)
-                             for path in self.cloneExclude]
+    def extractFilesFromCommit(self, commit, shelved=False, shelved_cl = 0):
         files = []
         fnum = 0
         while "depotFile%s" % fnum in commit:
             path =  commit["depotFile%s" % fnum]
-
-            if [p for p in self.cloneExclude
-                if p4PathStartsWith(path, p)]:
-                found = False
-            else:
-                found = [p for p in self.depotPaths
-                         if p4PathStartsWith(path, p)]
+            found = self.isPathWanted(path)
             if not found:
                 fnum = fnum + 1
                 continue
@@ -2650,17 +2653,6 @@ class P4Sync(Command, P4UserMap):
             file["type"] = commit["type%s" % fnum]
             if shelved:
                 file["shelved_cl"] = int(shelved_cl)
-
-                # For shelved changelists, check that the revision of each file that the
-                # shelve was based on matches the revision that we are using for the
-                # starting point for git-fast-import (self.initialParent). Otherwise
-                # the resulting diff will contain deltas from multiple commits.
-
-                if file["action"] != "add" and \
-                    not self.cmp_shelved(path, file["rev"], origin_revision):
-                    sys.exit("change {0} not based on {1} for {2}, cannot unshelve".format(
-                        commit["change"], self.initialParent, path))
-
             files.append(file)
             fnum = fnum + 1
         return files
@@ -2686,7 +2678,7 @@ class P4Sync(Command, P4UserMap):
             path = self.clientSpecDirs.map_in_client(path)
             if self.detectBranches:
                 for b in self.knownBranches:
-                    if path.startswith(b + "/"):
+                    if p4PathStartsWith(path, b + "/"):
                         path = path[len(b)+1:]
 
         elif self.keepRepoPath:
@@ -2718,8 +2710,7 @@ class P4Sync(Command, P4UserMap):
         fnum = 0
         while "depotFile%s" % fnum in commit:
             path =  commit["depotFile%s" % fnum]
-            found = [p for p in self.depotPaths
-                     if p4PathStartsWith(path, p)]
+            found = self.isPathWanted(path)
             if not found:
                 fnum = fnum + 1
                 continue
@@ -2741,7 +2732,7 @@ class P4Sync(Command, P4UserMap):
             for branch in self.knownBranches.keys():
                 # add a trailing slash so that a commit into qt/4.2foo
                 # doesn't end up in qt/4.2, e.g.
-                if relPath.startswith(branch + "/"):
+                if p4PathStartsWith(relPath, branch + "/"):
                     if branch not in branches:
                         branches[branch] = []
                     branches[branch].append(file)
@@ -2775,7 +2766,10 @@ class P4Sync(Command, P4UserMap):
         relPath = self.stripRepoPath(file['depotFile'], self.branchPrefixes)
         relPath = self.encodeWithUTF8(relPath)
         if verbose:
-            size = int(self.stream_file['fileSize'])
+            if 'fileSize' in self.stream_file:
+                size = int(self.stream_file['fileSize'])
+            else:
+                size = 0 # deleted files don't get a fileSize apparently
             sys.stdout.write('\r%s --> %s (%i MB)\n' % (file['depotFile'], relPath, size/1024/1024))
             sys.stdout.flush()
 
@@ -3029,7 +3023,7 @@ class P4Sync(Command, P4UserMap):
             print('Ignoring file outside of prefix: {0}'.format(path))
         return hasPrefix
 
-    def commit(self, details, files, branch, parent = ""):
+    def commit(self, details, files, branch, parent = "", allow_empty=False):
         epoch = details["time"]
         author = details["user"]
         jobs = self.extractJobsFromCommit(details)
@@ -3043,7 +3037,10 @@ class P4Sync(Command, P4UserMap):
         files = [f for f in files
             if self.inClientSpec(f['path']) and self.hasBranchPrefix(f['path'])]
 
-        if not files and not gitConfigBool('git-p4.keepEmptyCommits'):
+        if gitConfigBool('git-p4.keepEmptyCommits'):
+            allow_empty = True
+
+        if not files and not allow_empty:
             print('Ignoring revision {0} as it would produce an empty commit.'
                 .format(details['change']))
             return
@@ -3337,7 +3334,9 @@ class P4Sync(Command, P4UserMap):
             if currentChange < change:
                 earliestCommit = "^%s" % next
             else:
-                latestCommit = "%s" % next
+                if next == latestCommit:
+                    die("Infinite loop while looking in ref %s for change %s. Check your branch mappings" % (ref, change))
+                latestCommit = "%s^@" % next
 
         return ""
 
@@ -3384,10 +3383,10 @@ class P4Sync(Command, P4UserMap):
         else:
             return None
 
-    def importChanges(self, changes, shelved=False, origin_revision=0):
+    def importChanges(self, changes, origin_revision=0):
         cnt = 1
         for change in changes:
-            description = p4_describe(change, shelved)
+            description = p4_describe(change)
             self.updateOptionDict(description)
 
             if not self.silent:
@@ -3457,7 +3456,7 @@ class P4Sync(Command, P4UserMap):
                                 print("Parent of %s not found. Committing into head of %s" % (branch, parent))
                             self.commit(description, filesForCommit, branch, parent)
                 else:
-                    files = self.extractFilesFromCommit(description, shelved, change, origin_revision)
+                    files = self.extractFilesFromCommit(description)
                     self.commit(description, files, self.branch,
                                 self.initialParent)
                     # only needed once, to connect to the previous commit
@@ -3900,7 +3899,6 @@ class P4Clone(P4Sync):
             self.cloneDestination = depotPaths[-1]
             depotPaths = depotPaths[:-1]
 
-        self.cloneExclude = ["/"+p for p in self.cloneExclude]
         for p in depotPaths:
             if not p.startswith("//"):
                 sys.stderr.write('Depot paths must start with "//": %s\n' % p)
@@ -3953,7 +3951,7 @@ class P4Unshelve(Command):
         ]
         self.verbose = False
         self.noCommit = False
-        self.destbranch = "refs/remotes/p4/unshelved"
+        self.destbranch = "refs/remotes/p4-unshelved"
 
     def renameBranch(self, branch_name):
         """ Rename the existing branch to branch_name.N
@@ -3985,6 +3983,32 @@ class P4Unshelve(Command):
 
         sys.exit("could not find git-p4 commits in {0}".format(self.origin))
 
+    def createShelveParent(self, change, branch_name, sync, origin):
+        """ Create a commit matching the parent of the shelved changelist 'change'
+        """
+        parent_description = p4_describe(change, shelved=True)
+        parent_description['desc'] = 'parent for shelved changelist {}\n'.format(change)
+        files = sync.extractFilesFromCommit(parent_description, shelved=False, shelved_cl=change)
+
+        parent_files = []
+        for f in files:
+            # if it was added in the shelved changelist, it won't exist in the parent
+            if f['action'] in self.add_actions:
+                continue
+
+            # if it was deleted in the shelved changelist it must not be deleted
+            # in the parent - we might even need to create it if the origin branch
+            # does not have it
+            if f['action'] in self.delete_actions:
+                f['action'] = 'add'
+
+            parent_files.append(f)
+
+        sync.commit(parent_description, parent_files, branch_name,
+                parent=origin, allow_empty=True)
+        print("created parent commit for {0} based on {1} in {2}".format(
+            change, self.origin, branch_name))
+
     def run(self, args):
         if len(args) != 1:
             return False
@@ -3994,9 +4018,8 @@ class P4Unshelve(Command):
 
         sync = P4Sync()
         changes = args
-        sync.initialParent = self.origin
 
-        # use the first change in the list to construct the branch to unshelve into
+        # only one change at a time
         change = changes[0]
 
         # if the target branch already exists, rename it
@@ -4009,14 +4032,21 @@ class P4Unshelve(Command):
         sync.suppress_meta_comment = True
 
         settings = self.findLastP4Revision(self.origin)
-        origin_revision = settings['change']
         sync.depotPaths = settings['depot-paths']
         sync.branchPrefixes = sync.depotPaths
 
         sync.openStreams()
         sync.loadUserMapFromCache()
         sync.silent = True
-        sync.importChanges(changes, shelved=True, origin_revision=origin_revision)
+
+        # create a commit for the parent of the shelved changelist
+        self.createShelveParent(change, branch_name, sync, self.origin)
+
+        # create the commit for the shelved changelist itself
+        description = p4_describe(change, True)
+        files = sync.extractFilesFromCommit(description, True, change)
+
+        sync.commit(description, files, branch_name, "")
         sync.closeStreams()
 
         print("unshelved changelist {0} into {1}".format(change, branch_name))

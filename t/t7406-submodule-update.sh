@@ -789,7 +789,7 @@ test_expect_success 'submodule add places git-dir in superprojects git-dir' '
 	 (cd .git/modules/deeper/submodule &&
 	  git log > ../../../../actual
 	 ) &&
-	 test_cmp actual expected
+	 test_cmp expected actual
 	)
 '
 
@@ -807,7 +807,7 @@ test_expect_success 'submodule update places git-dir in superprojects git-dir' '
 	 (cd .git/modules/deeper/submodule &&
 	  git log > ../../../../actual
 	 ) &&
-	 test_cmp actual expected
+	 test_cmp expected actual
 	)
 '
 
@@ -827,7 +827,7 @@ test_expect_success 'submodule add places git-dir in superprojects git-dir recur
 	 git add deeper/submodule &&
 	 git commit -m "update submodule" &&
 	 git push origin : &&
-	 test_cmp actual expected
+	 test_cmp expected actual
 	)
 '
 
@@ -874,7 +874,7 @@ test_expect_success 'submodule update places git-dir in superprojects git-dir re
 	 (cd .git/modules/submodule/modules/subsubmodule &&
 	  git log > ../../../../../actual
 	 ) &&
-	 test_cmp actual expected
+	 test_cmp expected actual
 	)
 '
 
@@ -943,7 +943,10 @@ test_expect_success 'submodule update clone shallow submodule outside of depth' 
 		cd super3 &&
 		sed -e "s#url = ../#url = file://$pwd/#" <.gitmodules >.gitmodules.tmp &&
 		mv -f .gitmodules.tmp .gitmodules &&
-		test_must_fail git submodule update --init --depth=1 2>actual &&
+		# Some protocol versions (e.g. 2) support fetching
+		# unadvertised objects, so restrict this test to v0.
+		test_must_fail env GIT_TEST_PROTOCOL_VERSION= \
+			git submodule update --init --depth=1 2>actual &&
 		test_i18ngrep "Direct fetching of that commit failed." actual &&
 		git -C ../submodule config uploadpack.allowReachableSHA1InWant true &&
 		git submodule update --init --depth=1 >actual &&

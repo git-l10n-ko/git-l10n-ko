@@ -577,4 +577,98 @@ test_expect_success 'multiple identical conflicts' '
 	count_pre_post 0 0
 '
 
+test_expect_success 'rerere with unexpected conflict markers does not crash' '
+	git reset --hard &&
+
+	git checkout -b branch-1 master &&
+	echo "bar" >test &&
+	git add test &&
+	git commit -q -m two &&
+
+	git reset --hard &&
+	git checkout -b branch-2 master &&
+	echo "foo" >test &&
+	git add test &&
+	git commit -q -a -m one &&
+
+	test_must_fail git merge branch-1 &&
+	echo "<<<<<<< a" >test &&
+	git rerere &&
+
+	git rerere clear
+'
+
+test_expect_success 'rerere with inner conflict markers' '
+	git reset --hard &&
+
+	git checkout -b A master &&
+	echo "bar" >test &&
+	git add test &&
+	git commit -q -m two &&
+	echo "baz" >test &&
+	git add test &&
+	git commit -q -m three &&
+
+	git reset --hard &&
+	git checkout -b B master &&
+	echo "foo" >test &&
+	git add test &&
+	git commit -q -a -m one &&
+
+	test_must_fail git merge A~ &&
+	git add test &&
+	git commit -q -m "will solve conflicts later" &&
+	test_must_fail git merge A &&
+
+	echo "resolved" >test &&
+	git add test &&
+	git commit -q -m "solved conflict" &&
+
+	echo "resolved" >expect &&
+
+	git reset --hard HEAD~~ &&
+	test_must_fail git merge A~ &&
+	git add test &&
+	git commit -q -m "will solve conflicts later" &&
+	test_must_fail git merge A &&
+	cat test >actual &&
+	test_cmp expect actual &&
+
+	git add test &&
+	git commit -m "rerere solved conflict" &&
+	git reset --hard HEAD~ &&
+	test_must_fail git merge A &&
+	cat test >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'setup simple stage 1 handling' '
+	test_create_repo stage_1_handling &&
+	(
+		cd stage_1_handling &&
+
+		test_seq 1 10 >original &&
+		git add original &&
+		git commit -m original &&
+
+		git checkout -b A master &&
+		git mv original A &&
+		git commit -m "rename to A" &&
+
+		git checkout -b B master &&
+		git mv original B &&
+		git commit -m "rename to B"
+	)
+'
+
+test_expect_success 'test simple stage 1 handling' '
+	(
+		cd stage_1_handling &&
+
+		git config rerere.enabled true &&
+		git checkout A^0 &&
+		test_must_fail git merge B^0
+	)
+'
+
 test_done

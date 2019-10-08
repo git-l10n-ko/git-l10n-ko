@@ -10,6 +10,7 @@
 #include "refspec.h"
 #include "object-store.h"
 #include "argv-array.h"
+#include "commit-reach.h"
 
 static const char * const builtin_remote_usage[] = {
 	N_("git remote [-v | --verbose]"),
@@ -168,7 +169,7 @@ static int add(int argc, const char **argv)
 		OPT_STRING_LIST('t', "track", &track, N_("branch"),
 				N_("branch(es) to track")),
 		OPT_STRING('m', "master", &master, N_("branch"), N_("master branch")),
-		{ OPTION_CALLBACK, 0, "mirror", &mirror, N_("push|fetch"),
+		{ OPTION_CALLBACK, 0, "mirror", &mirror, "(push|fetch)",
 			N_("set up remote as a mirror to push to or fetch from"),
 			PARSE_OPT_OPTARG | PARSE_OPT_COMP_ARG, parse_mirror_opt },
 		OPT_END()
@@ -412,7 +413,7 @@ static int get_push_ref_states(const struct ref *remote_refs,
 
 		if (is_null_oid(&ref->new_oid)) {
 			info->status = PUSH_STATUS_DELETE;
-		} else if (!oidcmp(&ref->old_oid, &ref->new_oid))
+		} else if (oideq(&ref->old_oid, &ref->new_oid))
 			info->status = PUSH_STATUS_UPTODATE;
 		else if (is_null_oid(&ref->old_oid))
 			info->status = PUSH_STATUS_CREATE;
@@ -625,7 +626,7 @@ static int mv(int argc, const char **argv)
 
 	oldremote = remote_get(rename.old_name);
 	if (!remote_is_configured(oldremote, 1))
-		die(_("No such remote: %s"), rename.old_name);
+		die(_("No such remote: '%s'"), rename.old_name);
 
 	if (!strcmp(rename.old_name, rename.new_name) && oldremote->origin != REMOTE_CONFIG)
 		return migrate_file(oldremote);
@@ -761,7 +762,7 @@ static int rm(int argc, const char **argv)
 
 	remote = remote_get(argv[1]);
 	if (!remote_is_configured(remote, 1))
-		die(_("No such remote: %s"), argv[1]);
+		die(_("No such remote: '%s'"), argv[1]);
 
 	known_remotes.to_delete = remote;
 	for_each_remote(add_known_remote, &known_remotes);
@@ -860,7 +861,7 @@ static int get_remote_ref_states(const char *name,
 
 	states->remote = remote_get(name);
 	if (!states->remote)
-		return error(_("No such remote: %s"), name);
+		return error(_("No such remote: '%s'"), name);
 
 	read_branches();
 
@@ -1406,7 +1407,7 @@ static int update(int argc, const char **argv)
 	return retval;
 }
 
-static int remove_all_fetch_refspecs(const char *remote, const char *key)
+static int remove_all_fetch_refspecs(const char *key)
 {
 	return git_config_set_multivar_gently(key, NULL, NULL, 1);
 }
@@ -1436,7 +1437,7 @@ static int set_remote_branches(const char *remotename, const char **branches,
 	if (!remote_is_configured(remote, 1))
 		die(_("No such remote '%s'"), remotename);
 
-	if (!add_mode && remove_all_fetch_refspecs(remotename, key.buf)) {
+	if (!add_mode && remove_all_fetch_refspecs(key.buf)) {
 		strbuf_release(&key);
 		return 1;
 	}

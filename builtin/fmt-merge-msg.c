@@ -12,6 +12,7 @@
 #include "fmt-merge-msg.h"
 #include "gpg-interface.h"
 #include "repository.h"
+#include "commit-reach.h"
 
 static const char * const fmt_merge_msg_usage[] = {
 	N_("git fmt-merge-msg [-m <message>] [--log[=<n>] | --no-log] [--file <file>]"),
@@ -78,9 +79,9 @@ static struct merge_parent *find_merge_parent(struct merge_parents *table,
 {
 	int i;
 	for (i = 0; i < table->nr; i++) {
-		if (given && oidcmp(&table->item[i].given, given))
+		if (given && !oideq(&table->item[i].given, given))
 			continue;
-		if (commit && oidcmp(&table->item[i].commit, commit))
+		if (commit && !oideq(&table->item[i].commit, commit))
 			continue;
 		return &table->item[i];
 	}
@@ -582,7 +583,7 @@ static void find_merge_parents(struct merge_parents *result,
 	while (parents) {
 		struct commit *cmit = pop_commit(&parents);
 		for (i = 0; i < result->nr; i++)
-			if (!oidcmp(&result->item[i].commit, &cmit->object.oid))
+			if (oideq(&result->item[i].commit, &cmit->object.oid))
 				result->item[i].used = 1;
 	}
 
@@ -642,7 +643,7 @@ int fmt_merge_msg(struct strbuf *in, struct strbuf *out,
 		struct rev_info rev;
 
 		head = lookup_commit_or_die(&head_oid, "HEAD");
-		init_revisions(&rev, NULL);
+		repo_init_revisions(the_repository, &rev, NULL);
 		rev.commit_format = CMIT_FMT_ONELINE;
 		rev.ignore_merges = 1;
 		rev.limited = 1;

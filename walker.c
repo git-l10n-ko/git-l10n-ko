@@ -50,13 +50,13 @@ static int process_tree(struct walker *walker, struct tree *tree)
 			continue;
 		if (S_ISDIR(entry.mode)) {
 			struct tree *tree = lookup_tree(the_repository,
-							entry.oid);
+							&entry.oid);
 			if (tree)
 				obj = &tree->object;
 		}
 		else {
 			struct blob *blob = lookup_blob(the_repository,
-							entry.oid);
+							&entry.oid);
 			if (blob)
 				obj = &blob->object;
 		}
@@ -285,7 +285,7 @@ int walker_fetch(struct walker *walker, int targets, char **target,
 			error("Could not interpret response from server '%s' as something to pull", target[i]);
 			goto done;
 		}
-		if (process(walker, lookup_unknown_object(oids[i].hash)))
+		if (process(walker, lookup_unknown_object(&oids[i])))
 			goto done;
 	}
 

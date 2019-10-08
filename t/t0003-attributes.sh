@@ -208,9 +208,8 @@ test_expect_success 'attribute test: --all option' '
 '
 
 test_expect_success 'attribute test: --cached option' '
-	: >empty &&
 	git check-attr --cached --stdin --all <stdin-all | sort >actual &&
-	test_cmp empty actual &&
+	test_must_be_empty actual &&
 	git add .gitattributes a/.gitattributes a/b/.gitattributes &&
 	git check-attr --cached --stdin --all <stdin-all | sort >actual &&
 	test_cmp specified-all actual
@@ -321,6 +320,26 @@ test_expect_success 'bare repository: test info/attributes' '
 		attr_check a/i a/i &&
 		attr_check subdir/a/i unspecified
 	)
+'
+
+test_expect_success 'binary macro expanded by -a' '
+	echo "file binary" >.gitattributes &&
+	cat >expect <<-\EOF &&
+	file: binary: set
+	file: diff: unset
+	file: merge: unset
+	file: text: unset
+	EOF
+	git check-attr -a file >actual &&
+	test_cmp expect actual
+'
+
+
+test_expect_success 'query binary macro directly' '
+	echo "file binary" >.gitattributes &&
+	echo file: binary: set >expect &&
+	git check-attr binary file >actual &&
+	test_cmp expect actual
 '
 
 test_done

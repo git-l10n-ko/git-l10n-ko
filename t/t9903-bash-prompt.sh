@@ -180,7 +180,7 @@ test_expect_success 'prompt - interactive rebase' '
 '
 
 test_expect_success 'prompt - rebase merge' '
-	printf " (b2|REBASE-m 1/3)" >expected &&
+	printf " (b2|REBASE-i 1/3)" >expected &&
 	git checkout b2 &&
 	test_when_finished "git checkout master" &&
 	test_must_fail git rebase --merge b1 b2 &&
@@ -211,8 +211,24 @@ test_expect_success 'prompt - merge' '
 
 test_expect_success 'prompt - cherry-pick' '
 	printf " (master|CHERRY-PICKING)" >expected &&
-	test_must_fail git cherry-pick b1 &&
-	test_when_finished "git reset --hard" &&
+	test_must_fail git cherry-pick b1 b1^ &&
+	test_when_finished "git cherry-pick --abort" &&
+	__git_ps1 >"$actual" &&
+	test_cmp expected "$actual" &&
+	git reset --merge &&
+	test_must_fail git rev-parse CHERRY_PICK_HEAD &&
+	__git_ps1 >"$actual" &&
+	test_cmp expected "$actual"
+'
+
+test_expect_success 'prompt - revert' '
+	printf " (master|REVERTING)" >expected &&
+	test_must_fail git revert b1^ b1 &&
+	test_when_finished "git revert --abort" &&
+	__git_ps1 >"$actual" &&
+	test_cmp expected "$actual" &&
+	git reset --merge &&
+	test_must_fail git rev-parse REVERT_HEAD &&
 	__git_ps1 >"$actual" &&
 	test_cmp expected "$actual"
 '
@@ -513,10 +529,9 @@ test_expect_success 'prompt - format string starting with dash' '
 
 test_expect_success 'prompt - pc mode' '
 	printf "BEFORE: (\${__git_ps1_branch_name}):AFTER\\nmaster" >expected &&
-	printf "" >expected_output &&
 	(
 		__git_ps1 "BEFORE:" ":AFTER" >"$actual" &&
-		test_cmp expected_output "$actual" &&
+		test_must_be_empty "$actual" &&
 		printf "%s\\n%s" "$PS1" "${__git_ps1_branch_name}" >"$actual"
 	) &&
 	test_cmp expected "$actual"
@@ -712,13 +727,12 @@ test_expect_success 'prompt - hide if pwd ignored - env var set, config disabled
 '
 
 test_expect_success 'prompt - hide if pwd ignored - env var set, config unset' '
-	printf "" >expected &&
 	(
 		cd ignored_dir &&
 		GIT_PS1_HIDE_IF_PWD_IGNORED=y &&
 		__git_ps1 >"$actual"
 	) &&
-	test_cmp expected "$actual"
+	test_must_be_empty "$actual"
 '
 
 test_expect_success 'prompt - hide if pwd ignored - env var set, config unset, pc mode' '

@@ -264,9 +264,10 @@ static int has_only_ascii(const char *s)
 	}
 }
 
-static int entry_is_binary(const char *path, const void *buffer, size_t size)
+static int entry_is_binary(struct index_state *istate, const char *path,
+			   const void *buffer, size_t size)
 {
-	struct userdiff_driver *driver = userdiff_find_by_path(path);
+	struct userdiff_driver *driver = userdiff_find_by_path(istate, path);
 	if (!driver)
 		driver = userdiff_find_by_name("default");
 	if (driver->binary != -1)
@@ -352,7 +353,8 @@ static int write_zip_entry(struct archiver_args *args,
 				return error(_("cannot read %s"),
 					     oid_to_hex(oid));
 			crc = crc32(crc, buffer, size);
-			is_binary = entry_is_binary(path_without_prefix,
+			is_binary = entry_is_binary(args->repo->index,
+						    path_without_prefix,
 						    buffer, size);
 			out = buffer;
 		}
@@ -428,7 +430,8 @@ static int write_zip_entry(struct archiver_args *args,
 				break;
 			crc = crc32(crc, buf, readlen);
 			if (is_binary == -1)
-				is_binary = entry_is_binary(path_without_prefix,
+				is_binary = entry_is_binary(args->repo->index,
+							    path_without_prefix,
 							    buf, readlen);
 			write_or_die(1, buf, readlen);
 		}
@@ -460,7 +463,8 @@ static int write_zip_entry(struct archiver_args *args,
 				break;
 			crc = crc32(crc, buf, readlen);
 			if (is_binary == -1)
-				is_binary = entry_is_binary(path_without_prefix,
+				is_binary = entry_is_binary(args->repo->index,
+							    path_without_prefix,
 							    buf, readlen);
 
 			zstream.next_in = buf;
@@ -573,7 +577,7 @@ static void write_zip64_trailer(void)
 	write_or_die(1, &locator64, ZIP64_DIR_TRAILER_LOCATOR_SIZE);
 }
 
-static void write_zip_trailer(const unsigned char *sha1)
+static void write_zip_trailer(const struct object_id *oid)
 {
 	struct zip_dir_trailer trailer;
 	int clamped = 0;
@@ -586,14 +590,14 @@ static void write_zip_trailer(const unsigned char *sha1)
 	copy_le16_clamp(trailer.entries, zip_dir_entries, &clamped);
 	copy_le32(trailer.size, zip_dir.len);
 	copy_le32_clamp(trailer.offset, zip_offset, &clamped);
-	copy_le16(trailer.comment_length, sha1 ? GIT_SHA1_HEXSZ : 0);
+	copy_le16(trailer.comment_length, oid ? the_hash_algo->hexsz : 0);
 
 	write_or_die(1, zip_dir.buf, zip_dir.len);
 	if (clamped)
 		write_zip64_trailer();
 	write_or_die(1, &trailer, ZIP_DIR_TRAILER_SIZE);
-	if (sha1)
-		write_or_die(1, sha1_to_hex(sha1), GIT_SHA1_HEXSZ);
+	if (oid)
+		write_or_die(1, oid_to_hex(oid), the_hash_algo->hexsz);
 }
 
 static void dos_time(timestamp_t *timestamp, int *dos_date, int *dos_time)
@@ -631,7 +635,7 @@ static int write_zip_archive(const struct archiver *ar,
 
 	err = write_archive_entries(args, write_zip_entry);
 	if (!err)
-		write_zip_trailer(args->commit_sha1);
+		write_zip_trailer(args->commit_oid);
 
 	strbuf_release(&zip_dir);
 

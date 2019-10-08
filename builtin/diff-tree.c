@@ -1,3 +1,4 @@
+#define USE_THE_INDEX_COMPATIBILITY_MACROS
 #include "cache.h"
 #include "config.h"
 #include "diff.h"
@@ -82,9 +83,13 @@ static int diff_tree_stdin(char *line)
 }
 
 static const char diff_tree_usage[] =
-"git diff-tree [--stdin] [-m] [-c] [--cc] [-s] [-v] [--pretty] [-t] [-r] [--root] "
+"git diff-tree [--stdin] [-m] [-c | --cc] [-s] [-v] [--pretty] [-t] [-r] [--root] "
 "[<common-diff-options>] <tree-ish> [<tree-ish>] [<path>...]\n"
 "  -r            diff recursively\n"
+"  -c            show combined diff for merge commits\n"
+"  --cc          show combined diff for merge commits removing uninteresting hunks\n"
+"  --combined-all-paths\n"
+"                show name of file in all parents for combined diffs\n"
 "  --root        include the initial commit as diff against /dev/null\n"
 COMMON_DIFF_OPTIONS_HELP;
 
@@ -110,7 +115,7 @@ int cmd_diff_tree(int argc, const char **argv, const char *prefix)
 		usage(diff_tree_usage);
 
 	git_config(git_diff_basic_config, NULL); /* no "diff" UI options */
-	init_revisions(opt, prefix);
+	repo_init_revisions(the_repository, opt, prefix);
 	if (read_cache() < 0)
 		die(_("index file corrupt"));
 	opt->abbrev = 0;
@@ -165,7 +170,7 @@ int cmd_diff_tree(int argc, const char **argv, const char *prefix)
 
 		if (opt->diffopt.detect_rename) {
 			if (!the_index.cache)
-				read_index(&the_index);
+				repo_read_index(the_repository);
 			opt->diffopt.setup |= DIFF_SETUP_USE_SIZE_CACHE;
 		}
 		while (fgets(line, sizeof(line), stdin)) {

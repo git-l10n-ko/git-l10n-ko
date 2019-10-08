@@ -352,7 +352,7 @@ test_expect_success 'log with grep.patternType configuration and command line' '
 	test_cmp expect actual
 '
 
-test_expect_success 'log with various grep.patternType configurations & command-lines' '
+test_expect_success !FAIL_PREREQS 'log with various grep.patternType configurations & command-lines' '
 	git init pattern-type &&
 	(
 		cd pattern-type &&
@@ -1701,6 +1701,10 @@ test_expect_success 'log --source paints symmetric ranges' '
 	EOF
 	git log --oneline --source source-a...source-b >actual &&
 	test_cmp expect actual
+'
+
+test_expect_success '--exclude-promisor-objects does not BUG-crash' '
+	test_must_fail git log --exclude-promisor-objects source-a
 '
 
 test_done

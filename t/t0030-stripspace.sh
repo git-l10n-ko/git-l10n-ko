@@ -320,22 +320,20 @@ test_expect_success \
 
 test_expect_success \
     'spaces with newline at end should be replaced with empty string' '
-    printf "" >expect &&
-
     echo | git stripspace >actual &&
-    test_cmp expect actual &&
+    test_must_be_empty actual &&
 
     echo "$sss" | git stripspace >actual &&
-    test_cmp expect actual &&
+    test_must_be_empty actual &&
 
     echo "$sss$sss" | git stripspace >actual &&
-    test_cmp expect actual &&
+    test_must_be_empty actual &&
 
     echo "$sss$sss$sss" | git stripspace >actual &&
-    test_cmp expect actual &&
+    test_must_be_empty actual &&
 
     echo "$sss$sss$sss$sss" | git stripspace >actual &&
-    test_cmp expect actual
+    test_must_be_empty actual
 '
 
 test_expect_success \
@@ -349,19 +347,17 @@ test_expect_success \
 
 test_expect_success \
     'spaces without newline at end should be replaced with empty string' '
-    printf "" >expect &&
-
     printf "" | git stripspace >actual &&
-    test_cmp expect actual &&
+    test_must_be_empty actual &&
 
     printf "$sss$sss" | git stripspace >actual &&
-    test_cmp expect actual &&
+    test_must_be_empty actual &&
 
     printf "$sss$sss$sss" | git stripspace >actual &&
-    test_cmp expect actual &&
+    test_must_be_empty actual &&
 
     printf "$sss$sss$sss$sss" | git stripspace >actual &&
-    test_cmp expect actual
+    test_must_be_empty actual
 '
 
 test_expect_success \
@@ -434,9 +430,15 @@ test_expect_success '-c with changed comment char' '
 test_expect_success '-c with comment char defined in .git/config' '
 	test_config core.commentchar = &&
 	printf "= foo\n" >expect &&
-	printf "foo" | (
-		mkdir sub && cd sub && git stripspace -c
-	) >actual &&
+	rm -fr sub &&
+	mkdir sub &&
+	printf "foo" | git -C sub stripspace -c >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success '-c outside git repository' '
+	printf "# foo\n" >expect &&
+	printf "foo" | nongit git stripspace -c >actual &&
 	test_cmp expect actual
 '
 

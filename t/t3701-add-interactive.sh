@@ -540,7 +540,7 @@ test_expect_success 'add -p does not expand argument lists' '
 	# update it, but we want to be sure that our "." pathspec
 	# was not expanded into the argument list of any command.
 	# So look only for "not-changed".
-	! grep not-changed trace.out
+	! grep -E "^trace: (built-in|exec|run_command): .*not-changed" trace.out
 '
 
 test_expect_success 'hunk-editing handles custom comment char' '
@@ -639,4 +639,12 @@ test_expect_success 'add -p patch editing works with pathological context lines'
 	test_cmp expected-2 actual
 '
 
+test_expect_success 'checkout -p works with pathological context lines' '
+	test_write_lines a a a a a a >a &&
+	git add a &&
+	test_write_lines a b a b a b a b a b a > a&&
+	test_write_lines s n n y q | git checkout -p &&
+	test_write_lines a b a b a a b a b a >expect &&
+	test_cmp expect a
+'
 test_done

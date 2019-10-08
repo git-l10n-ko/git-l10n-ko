@@ -39,7 +39,8 @@ struct show_data {
 	enum replace_format format;
 };
 
-static int show_reference(const char *refname, const struct object_id *oid,
+static int show_reference(struct repository *r, const char *refname,
+			  const struct object_id *oid,
 			  int flag, void *cb_data)
 {
 	struct show_data *data = cb_data;
@@ -56,9 +57,8 @@ static int show_reference(const char *refname, const struct object_id *oid,
 			if (get_oid(refname, &object))
 				return error(_("failed to resolve '%s' as a valid ref"), refname);
 
-			obj_type = oid_object_info(the_repository, &object,
-						   NULL);
-			repl_type = oid_object_info(the_repository, oid, NULL);
+			obj_type = oid_object_info(r, &object, NULL);
+			repl_type = oid_object_info(r, oid, NULL);
 
 			printf("%s (%s) -> %s (%s)\n", refname, type_name(obj_type),
 			       oid_to_hex(oid), type_name(repl_type));
@@ -82,6 +82,10 @@ static int list_replace_refs(const char *pattern, const char *format)
 		data.format = REPLACE_FORMAT_MEDIUM;
 	else if (!strcmp(format, "long"))
 		data.format = REPLACE_FORMAT_LONG;
+	/*
+	 * Please update _git_replace() in git-completion.bash when
+	 * you add new format
+	 */
 	else
 		return error(_("invalid replace format '%s'\n"
 			       "valid formats are 'short', 'medium' and 'long'"),
@@ -295,7 +299,7 @@ static int import_object(struct object_id *oid, enum object_type type,
 			close(fd);
 			return -1;
 		}
-		if (index_fd(oid, fd, &st, type, NULL, flags) < 0)
+		if (index_fd(the_repository->index, oid, fd, &st, type, NULL, flags) < 0)
 			return error(_("unable to write object to database"));
 		/* index_fd close()s fd for us */
 	}
@@ -343,7 +347,7 @@ static int edit_and_replace(const char *object_ref, int force, int raw)
 	}
 	free(tmpfile);
 
-	if (!oidcmp(&old_oid, &new_oid))
+	if (oideq(&old_oid, &new_oid))
 		return error(_("new object is the same as the old one: '%s'"), oid_to_hex(&old_oid));
 
 	return replace_object_oid(object_ref, &old_oid, "replacement", &new_oid, force);
@@ -366,16 +370,19 @@ static int replace_parents(struct strbuf *buf, int argc, const char **argv)
 	/* prepare new parents */
 	for (i = 0; i < argc; i++) {
 		struct object_id oid;
+		struct commit *commit;
+
 		if (get_oid(argv[i], &oid) < 0) {
 			strbuf_release(&new_parents);
 			return error(_("not a valid object name: '%s'"),
 				     argv[i]);
 		}
-		if (!lookup_commit_reference(the_repository, &oid)) {
+		commit = lookup_commit_reference(the_repository, &oid);
+		if (!commit) {
 			strbuf_release(&new_parents);
-			return error(_("could not parse %s"), argv[i]);
+			return error(_("could not parse %s as a commit"), argv[i]);
 		}
-		strbuf_addf(&new_parents, "parent %s\n", oid_to_hex(&oid));
+		strbuf_addf(&new_parents, "parent %s\n", oid_to_hex(&commit->object.oid));
 	}
 
 	/* replace existing parents with new ones */
@@ -414,7 +421,7 @@ static int check_one_mergetag(struct commit *commit,
 		if (get_oid(mergetag_data->argv[i], &oid) < 0)
 			return error(_("not a valid object name: '%s'"),
 				     mergetag_data->argv[i]);
-		if (!oidcmp(&tag->tagged->oid, &oid))
+		if (oideq(&tag->tagged->oid, &oid))
 			return 0; /* found */
 	}
 
@@ -474,15 +481,18 @@ static int create_graft(int argc, const char **argv, int force, int gentle)
 
 	strbuf_release(&buf);
 
-	if (!oidcmp(&old_oid, &new_oid)) {
+	if (oideq(&commit->object.oid, &new_oid)) {
 		if (gentle) {
-			warning(_("graft for '%s' unnecessary"), oid_to_hex(&old_oid));
+			warning(_("graft for '%s' unnecessary"),
+				oid_to_hex(&commit->object.oid));
 			return 0;
 		}
-		return error(_("new commit is the same as the old one: '%s'"), oid_to_hex(&old_oid));
+		return error(_("new commit is the same as the old one: '%s'"),
+			     oid_to_hex(&commit->object.oid));
 	}
 
-	return replace_object_oid(old_ref, &old_oid, "replacement", &new_oid, force);
+	return replace_object_oid(old_ref, &commit->object.oid,
+				  "replacement", &new_oid, force);
 }
 
 static int convert_graft_file(int force)
@@ -495,6 +505,7 @@ static int convert_graft_file(int force)
 	if (!fp)
 		return -1;
 
+	advice_graft_file_deprecated = 0;
 	while (strbuf_getline(&buf, fp) != EOF) {
 		if (*buf.buf == '#')
 			continue;

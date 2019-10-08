@@ -559,9 +559,9 @@ test_expect_success 'no bogus intermediate values during delete' '
 	{
 		# Note: the following command is intentionally run in the
 		# background. We increase the timeout so that `update-ref`
-		# attempts to acquire the `packed-refs` lock for longer than
-		# it takes for us to do the check then delete it:
-		git -c core.packedrefstimeout=3000 update-ref -d $prefix/foo &
+		# attempts to acquire the `packed-refs` lock for much longer
+		# than it takes for us to do the check then delete it:
+		git -c core.packedrefstimeout=30000 update-ref -d $prefix/foo &
 	} &&
 	pid2=$! &&
 	# Give update-ref plenty of time to get to the point where it tries
@@ -614,7 +614,23 @@ test_expect_success 'delete fails cleanly if packed-refs file is locked' '
 	test_when_finished "rm -f .git/packed-refs.lock" &&
 	test_must_fail git update-ref -d $prefix/foo >out 2>err &&
 	git for-each-ref $prefix >actual &&
-	test_i18ngrep "Unable to create $Q.*packed-refs.lock$Q: File exists" err &&
+	test_i18ngrep "Unable to create $Q.*packed-refs.lock$Q: " err &&
+	test_cmp unchanged actual
+'
+
+test_expect_success 'delete fails cleanly if packed-refs.new write fails' '
+	# Setup and expectations are similar to the test above.
+	prefix=refs/failed-packed-refs &&
+	git update-ref $prefix/foo $C &&
+	git pack-refs --all &&
+	git update-ref $prefix/foo $D &&
+	git for-each-ref $prefix >unchanged &&
+	# This should not happen in practice, but it is an easy way to get a
+	# reliable error (we open with create_tempfile(), which uses O_EXCL).
+	: >.git/packed-refs.new &&
+	test_when_finished "rm -f .git/packed-refs.new" &&
+	test_must_fail git update-ref -d $prefix/foo &&
+	git for-each-ref $prefix >actual &&
 	test_cmp unchanged actual
 '
 

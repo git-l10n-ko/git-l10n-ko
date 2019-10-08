@@ -40,9 +40,7 @@ static void set_commit_rev_name(struct commit *commit, struct rev_name *name)
 }
 
 static int is_better_name(struct rev_name *name,
-			  const char *tip_name,
 			  timestamp_t taggerdate,
-			  int generation,
 			  int distance,
 			  int from_tag)
 {
@@ -103,8 +101,7 @@ static void name_rev(struct commit *commit,
 		name = xmalloc(sizeof(rev_name));
 		set_commit_rev_name(commit, name);
 		goto copy_data;
-	} else if (is_better_name(name, tip_name, taggerdate,
-				  generation, distance, from_tag)) {
+	} else if (is_better_name(name, taggerdate, distance, from_tag)) {
 copy_data:
 		name->tip_name = tip_name;
 		name->taggerdate = taggerdate;
@@ -361,26 +358,27 @@ static char const * const name_rev_usage[] = {
 static void name_rev_line(char *p, struct name_ref_data *data)
 {
 	struct strbuf buf = STRBUF_INIT;
-	int forty = 0;
+	int counter = 0;
 	char *p_start;
+	const unsigned hexsz = the_hash_algo->hexsz;
+
 	for (p_start = p; *p; p++) {
 #define ishex(x) (isdigit((x)) || ((x) >= 'a' && (x) <= 'f'))
 		if (!ishex(*p))
-			forty = 0;
-		else if (++forty == GIT_SHA1_HEXSZ &&
+			counter = 0;
+		else if (++counter == hexsz &&
 			 !ishex(*(p+1))) {
 			struct object_id oid;
 			const char *name = NULL;
 			char c = *(p+1);
 			int p_len = p - p_start + 1;
 
-			forty = 0;
+			counter = 0;
 
 			*(p+1) = 0;
-			if (!get_oid(p - (GIT_SHA1_HEXSZ - 1), &oid)) {
+			if (!get_oid(p - (hexsz - 1), &oid)) {
 				struct object *o =
-					lookup_object(the_repository,
-						      oid.hash);
+					lookup_object(the_repository, &oid);
 				if (o)
 					name = get_rev_name(o, &buf);
 			}
@@ -390,7 +388,7 @@ static void name_rev_line(char *p, struct name_ref_data *data)
 				continue;
 
 			if (data->name_only)
-				printf("%.*s%s", p_len - GIT_SHA1_HEXSZ, p_start, name);
+				printf("%.*s%s", p_len - hexsz, p_start, name);
 			else
 				printf("%.*s (%s)", p_len, p_start, name);
 			p_start = p + 1;

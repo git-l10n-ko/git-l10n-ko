@@ -145,7 +145,7 @@ test_expect_success 'remove remote protects local branches' '
 test_expect_success 'remove errors out early when deleting non-existent branch' '
 	(
 		cd test &&
-		echo "fatal: No such remote: foo" >expect &&
+		echo "fatal: No such remote: '\''foo'\''" >expect &&
 		test_must_fail git remote rm foo 2>actual &&
 		test_i18ncmp expect actual
 	)
@@ -173,7 +173,7 @@ test_expect_success 'remove remote with a branch without configured merge' '
 test_expect_success 'rename errors out early when deleting non-existent branch' '
 	(
 		cd test &&
-		echo "fatal: No such remote: foo" >expect &&
+		echo "fatal: No such remote: '\''foo'\''" >expect &&
 		test_must_fail git remote rename foo bar 2>actual &&
 		test_i18ncmp expect actual
 	)
@@ -1220,6 +1220,61 @@ test_extra_arg set-url origin newurl oldurl
 test_expect_success 'add remote matching the "insteadOf" URL' '
 	git config url.xyz@example.com.insteadOf backup &&
 	git remote add backup xyz@example.com
+'
+
+test_expect_success 'unqualified <dst> refspec DWIM and advice' '
+	test_when_finished "(cd test && git tag -d some-tag)" &&
+	(
+		cd test &&
+		git tag -a -m "Some tag" some-tag master &&
+		exit_with=true &&
+		for type in commit tag tree blob
+		do
+			if test "$type" = "blob"
+			then
+				oid=$(git rev-parse some-tag:file)
+			else
+				oid=$(git rev-parse some-tag^{$type})
+			fi &&
+			test_must_fail git push origin $oid:dst 2>err &&
+			test_i18ngrep "error: The destination you" err &&
+			test_i18ngrep "hint: Did you mean" err &&
+			test_must_fail git -c advice.pushUnqualifiedRefName=false \
+				push origin $oid:dst 2>err &&
+			test_i18ngrep "error: The destination you" err &&
+			test_i18ngrep ! "hint: Did you mean" err ||
+			exit_with=false
+		done &&
+		$exit_with
+	)
+'
+
+test_expect_success 'refs/remotes/* <src> refspec and unqualified <dst> DWIM and advice' '
+	(
+		cd two &&
+		git tag -a -m "Some tag" my-tag master &&
+		git update-ref refs/trees/my-head-tree HEAD^{tree} &&
+		git update-ref refs/blobs/my-file-blob HEAD:file
+	) &&
+	(
+		cd test &&
+		git config --add remote.two.fetch "+refs/tags/*:refs/remotes/tags-from-two/*" &&
+		git config --add remote.two.fetch "+refs/trees/*:refs/remotes/trees-from-two/*" &&
+		git config --add remote.two.fetch "+refs/blobs/*:refs/remotes/blobs-from-two/*" &&
+		git fetch --no-tags two &&
+
+		test_must_fail git push origin refs/remotes/two/another:dst 2>err &&
+		test_i18ngrep "error: The destination you" err &&
+
+		test_must_fail git push origin refs/remotes/tags-from-two/my-tag:dst-tag 2>err &&
+		test_i18ngrep "error: The destination you" err &&
+
+		test_must_fail git push origin refs/remotes/trees-from-two/my-head-tree:dst-tree 2>err &&
+		test_i18ngrep "error: The destination you" err &&
+
+		test_must_fail git push origin refs/remotes/blobs-from-two/my-file-blob:dst-blob 2>err &&
+		test_i18ngrep "error: The destination you" err
+	)
 '
 
 test_done

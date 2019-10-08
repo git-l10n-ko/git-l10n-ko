@@ -411,6 +411,122 @@ test_expect_success 'disappearing dir in rename/directory conflict handled' '
 	)
 '
 
+# Test for basic rename/add-dest conflict, with rename needing content merge:
+#   Commit O: a
+#   Commit A: rename a->b, modifying b too
+#   Commit B: modify a, add different b
+
+test_expect_success 'setup rename-with-content-merge vs. add' '
+	test_create_repo rename-with-content-merge-and-add &&
+	(
+		cd rename-with-content-merge-and-add &&
+
+		test_seq 1 5 >a &&
+		git add a &&
+		git commit -m O &&
+		git tag O &&
+
+		git checkout -b A O &&
+		git mv a b &&
+		test_seq 0 5 >b &&
+		git add b &&
+		git commit -m A &&
+
+		git checkout -b B O &&
+		echo 6 >>a &&
+		echo hello world >b &&
+		git add a b &&
+		git commit -m B
+	)
+'
+
+test_expect_success 'handle rename-with-content-merge vs. add' '
+	(
+		cd rename-with-content-merge-and-add &&
+
+		git checkout A^0 &&
+
+		test_must_fail git merge -s recursive B^0 >out &&
+		test_i18ngrep "CONFLICT (rename/add)" out &&
+
+		git ls-files -s >out &&
+		test_line_count = 2 out &&
+		git ls-files -u >out &&
+		test_line_count = 2 out &&
+		# Also, make sure both unmerged entries are for "b"
+		git ls-files -u b >out &&
+		test_line_count = 2 out &&
+		git ls-files -o >out &&
+		test_line_count = 1 out &&
+
+		test_path_is_missing a &&
+		test_path_is_file b &&
+
+		test_seq 0 6 >tmp &&
+		git hash-object tmp >expect &&
+		git rev-parse B:b >>expect &&
+		git rev-parse >actual  \
+			:2:b    :3:b   &&
+		test_cmp expect actual &&
+
+		# Test that the two-way merge in b is as expected
+		git cat-file -p :2:b >>ours &&
+		git cat-file -p :3:b >>theirs &&
+		>empty &&
+		test_must_fail git merge-file \
+			-L "HEAD" \
+			-L "" \
+			-L "B^0" \
+			ours empty theirs &&
+		test_cmp ours b
+	)
+'
+
+test_expect_success 'handle rename-with-content-merge vs. add, merge other way' '
+	(
+		cd rename-with-content-merge-and-add &&
+
+		git reset --hard &&
+		git clean -fdx &&
+
+		git checkout B^0 &&
+
+		test_must_fail git merge -s recursive A^0 >out &&
+		test_i18ngrep "CONFLICT (rename/add)" out &&
+
+		git ls-files -s >out &&
+		test_line_count = 2 out &&
+		git ls-files -u >out &&
+		test_line_count = 2 out &&
+		# Also, make sure both unmerged entries are for "b"
+		git ls-files -u b >out &&
+		test_line_count = 2 out &&
+		git ls-files -o >out &&
+		test_line_count = 1 out &&
+
+		test_path_is_missing a &&
+		test_path_is_file b &&
+
+		test_seq 0 6 >tmp &&
+		git rev-parse B:b >expect &&
+		git hash-object tmp >>expect &&
+		git rev-parse >actual  \
+			:2:b    :3:b   &&
+		test_cmp expect actual &&
+
+		# Test that the two-way merge in b is as expected
+		git cat-file -p :2:b >>ours &&
+		git cat-file -p :3:b >>theirs &&
+		>empty &&
+		test_must_fail git merge-file \
+			-L "HEAD" \
+			-L "" \
+			-L "A^0" \
+			ours empty theirs &&
+		test_cmp ours b
+	)
+'
+
 # Test for all kinds of things that can go wrong with rename/rename (2to1):
 #   Commit A: new files: a & b
 #   Commit B: rename a->c, modify b
@@ -464,17 +580,28 @@ test_expect_success 'handle rename/rename (2to1) conflict correctly' '
 		git ls-files -u c >out &&
 		test_line_count = 2 out &&
 		git ls-files -o >out &&
-		test_line_count = 3 out &&
+		test_line_count = 1 out &&
 
 		test_path_is_missing a &&
 		test_path_is_missing b &&
-		test_path_is_file c~HEAD &&
-		test_path_is_file c~C^0 &&
 
-		git rev-parse >expect   \
-			C:a     B:b     &&
-		git hash-object >actual \
-			c~HEAD  c~C^0   &&
+		git rev-parse >expect  \
+			C:a     B:b    &&
+		git rev-parse >actual  \
+			:2:c    :3:c   &&
+		test_cmp expect actual &&
+
+		# Test that the two-way merge in new_a is as expected
+		git cat-file -p :2:c >>ours &&
+		git cat-file -p :3:c >>theirs &&
+		>empty &&
+		test_must_fail git merge-file \
+			-L "HEAD" \
+			-L "" \
+			-L "C^0" \
+			ours empty theirs &&
+		git hash-object c >actual &&
+		git hash-object ours >expect &&
 		test_cmp expect actual
 	)
 '
@@ -673,7 +800,7 @@ test_expect_success 'rename/rename/add-dest merge still knows about conflicting 
 		git ls-files -u c >out &&
 		test_line_count = 2 out &&
 		git ls-files -o >out &&
-		test_line_count = 5 out &&
+		test_line_count = 1 out &&
 
 		git rev-parse >expect               \
 			A:a   C:b   B:b   C:c   B:c &&
@@ -681,14 +808,27 @@ test_expect_success 'rename/rename/add-dest merge still knows about conflicting 
 			:1:a  :2:b  :3:b  :2:c  :3:c &&
 		test_cmp expect actual &&
 
-		git rev-parse >expect               \
-			C:c     B:c     C:b     B:b &&
-		git hash-object >actual                \
-			c~HEAD  c~B\^0  b~HEAD  b~B\^0 &&
-		test_cmp expect actual &&
+		# Record some contents for re-doing merges
+		git cat-file -p A:a >stuff &&
+		git cat-file -p C:b >important_info &&
+		git cat-file -p B:c >precious_data &&
+		>empty &&
 
-		test_path_is_missing b &&
-		test_path_is_missing c
+		# Test the merge in b
+		test_must_fail git merge-file \
+			-L "HEAD" \
+			-L "" \
+			-L "B^0" \
+			important_info empty stuff &&
+		test_cmp important_info b &&
+
+		# Test the merge in c
+		test_must_fail git merge-file \
+			-L "HEAD" \
+			-L "" \
+			-L "B^0" \
+			stuff empty precious_data &&
+		test_cmp stuff c
 	)
 '
 
@@ -934,6 +1074,285 @@ test_expect_failure 'mod6-check: chains of rename/rename(1to2) and rename/rename
 			-L "HEAD"  -L ""  -L "B^0" \
 			expect     empty  other &&
 		test_cmp expect six
+	)
+'
+
+test_conflicts_with_adds_and_renames() {
+	sideL=$1
+	sideR=$2
+
+	# Setup:
+	#          L
+	#         / \
+	#   master   ?
+	#         \ /
+	#          R
+	#
+	# Where:
+	#   Both L and R have files named 'three' which collide.  Each of
+	#   the colliding files could have been involved in a rename, in
+	#   which case there was a file named 'one' or 'two' that was
+	#   modified on the opposite side of history and renamed into the
+	#   collision on this side of history.
+	#
+	# Questions:
+	#   1) The index should contain both a stage 2 and stage 3 entry
+	#      for the colliding file.  Does it?
+	#   2) When renames are involved, the content merges are clean, so
+	#      the index should reflect the content merges, not merely the
+	#      version of the colliding file from the prior commit.  Does
+	#      it?
+	#   3) There should be a file in the worktree named 'three'
+	#      containing the two-way merged contents of the content-merged
+	#      versions of 'three' from each of the two colliding
+	#      files.  Is it present?
+	#   4) There should not be any three~* files in the working
+	#      tree
+	test_expect_success "setup simple $sideL/$sideR conflict" '
+		test_create_repo simple_${sideL}_${sideR} &&
+		(
+			cd simple_${sideL}_${sideR} &&
+
+			# Create some related files now
+			for i in $(test_seq 1 10)
+			do
+				echo Random base content line $i
+			done >file_v1 &&
+			cp file_v1 file_v2 &&
+			echo modification >>file_v2 &&
+
+			cp file_v1 file_v3 &&
+			echo more stuff >>file_v3 &&
+			cp file_v3 file_v4 &&
+			echo yet more stuff >>file_v4 &&
+
+			# Use a tag to record both these files for simple
+			# access, and clean out these untracked files
+			git tag file_v1 $(git hash-object -w file_v1) &&
+			git tag file_v2 $(git hash-object -w file_v2) &&
+			git tag file_v3 $(git hash-object -w file_v3) &&
+			git tag file_v4 $(git hash-object -w file_v4) &&
+			git clean -f &&
+
+			# Setup original commit (or merge-base), consisting of
+			# files named "one" and "two" if renames were involved.
+			touch irrelevant_file &&
+			git add irrelevant_file &&
+			if [ $sideL = "rename" ]
+			then
+				git show file_v1 >one &&
+				git add one
+			fi &&
+			if [ $sideR = "rename" ]
+			then
+				git show file_v3 >two &&
+				git add two
+			fi &&
+			test_tick && git commit -m initial &&
+
+			git branch L &&
+			git branch R &&
+
+			# Handle the left side
+			git checkout L &&
+			if [ $sideL = "rename" ]
+			then
+				git mv one three
+			else
+				git show file_v2 >three &&
+				git add three
+			fi &&
+			if [ $sideR = "rename" ]
+			then
+				git show file_v4 >two &&
+				git add two
+			fi &&
+			test_tick && git commit -m L &&
+
+			# Handle the right side
+			git checkout R &&
+			if [ $sideL = "rename" ]
+			then
+				git show file_v2 >one &&
+				git add one
+			fi &&
+			if [ $sideR = "rename" ]
+			then
+				git mv two three
+			else
+				git show file_v4 >three &&
+				git add three
+			fi &&
+			test_tick && git commit -m R
+		)
+	'
+
+	test_expect_success "check simple $sideL/$sideR conflict" '
+		(
+			cd simple_${sideL}_${sideR} &&
+
+			git checkout L^0 &&
+
+			# Merge must fail; there is a conflict
+			test_must_fail git merge -s recursive R^0 &&
+
+			# Make sure the index has the right number of entries
+			git ls-files -s >out &&
+			test_line_count = 3 out &&
+			git ls-files -u >out &&
+			test_line_count = 2 out &&
+			# Ensure we have the correct number of untracked files
+			git ls-files -o >out &&
+			test_line_count = 1 out &&
+
+			# Nothing should have touched irrelevant_file
+			git rev-parse >actual      \
+				:0:irrelevant_file \
+				:2:three           \
+				:3:three           &&
+			git rev-parse >expected        \
+				master:irrelevant_file \
+				file_v2                \
+				file_v4                &&
+			test_cmp expected actual &&
+
+			# Make sure we have the correct merged contents for
+			# three
+			git show file_v1 >expected &&
+			cat <<-\EOF >>expected &&
+			<<<<<<< HEAD
+			modification
+			=======
+			more stuff
+			yet more stuff
+			>>>>>>> R^0
+			EOF
+
+			test_cmp expected three
+		)
+	'
+}
+
+test_conflicts_with_adds_and_renames rename rename
+test_conflicts_with_adds_and_renames rename add
+test_conflicts_with_adds_and_renames add    rename
+test_conflicts_with_adds_and_renames add    add
+
+# Setup:
+#          L
+#         / \
+#   master   ?
+#         \ /
+#          R
+#
+# Where:
+#   master has two files, named 'one' and 'two'.
+#   branches L and R both modify 'one', in conflicting ways.
+#   branches L and R both modify 'two', in conflicting ways.
+#   branch L also renames 'one' to 'three'.
+#   branch R also renames 'two' to 'three'.
+#
+#   So, we have four different conflicting files that all end up at path
+#   'three'.
+test_expect_success 'setup nested conflicts from rename/rename(2to1)' '
+	test_create_repo nested_conflicts_from_rename_rename &&
+	(
+		cd nested_conflicts_from_rename_rename &&
+
+		# Create some related files now
+		for i in $(test_seq 1 10)
+		do
+			echo Random base content line $i
+		done >file_v1 &&
+
+		cp file_v1 file_v2 &&
+		cp file_v1 file_v3 &&
+		cp file_v1 file_v4 &&
+		cp file_v1 file_v5 &&
+		cp file_v1 file_v6 &&
+
+		echo one  >>file_v1 &&
+		echo uno  >>file_v2 &&
+		echo eins >>file_v3 &&
+
+		echo two  >>file_v4 &&
+		echo dos  >>file_v5 &&
+		echo zwei >>file_v6 &&
+
+		# Setup original commit (or merge-base), consisting of
+		# files named "one" and "two".
+		mv file_v1 one &&
+		mv file_v4 two &&
+		git add one two &&
+		test_tick && git commit -m english &&
+
+		git branch L &&
+		git branch R &&
+
+		# Handle the left side
+		git checkout L &&
+		git rm one two &&
+		mv -f file_v2 three &&
+		mv -f file_v5 two &&
+		git add two three &&
+		test_tick && git commit -m spanish &&
+
+		# Handle the right side
+		git checkout R &&
+		git rm one two &&
+		mv -f file_v3 one &&
+		mv -f file_v6 three &&
+		git add one three &&
+		test_tick && git commit -m german
+	)
+'
+
+test_expect_success 'check nested conflicts from rename/rename(2to1)' '
+	(
+		cd nested_conflicts_from_rename_rename &&
+
+		git checkout L^0 &&
+
+		# Merge must fail; there is a conflict
+		test_must_fail git merge -s recursive R^0 &&
+
+		# Make sure the index has the right number of entries
+		git ls-files -s >out &&
+		test_line_count = 2 out &&
+		git ls-files -u >out &&
+		test_line_count = 2 out &&
+		# Ensure we have the correct number of untracked files
+		git ls-files -o >out &&
+		test_line_count = 1 out &&
+
+		# Compare :2:three to expected values
+		git cat-file -p master:one >base &&
+		git cat-file -p L:three >ours &&
+		git cat-file -p R:one >theirs &&
+		test_must_fail git merge-file    \
+			-L "HEAD:three"  -L ""  -L "R^0:one" \
+			ours             base   theirs &&
+		sed -e "s/^\([<=>]\)/\1\1/" ours >L-three &&
+		git cat-file -p :2:three >expect &&
+		test_cmp expect L-three &&
+
+		# Compare :2:three to expected values
+		git cat-file -p master:two >base &&
+		git cat-file -p L:two >ours &&
+		git cat-file -p R:three >theirs &&
+		test_must_fail git merge-file    \
+			-L "HEAD:two"  -L ""  -L "R^0:three" \
+			ours           base   theirs &&
+		sed -e "s/^\([<=>]\)/\1\1/" ours >R-three &&
+		git cat-file -p :3:three >expect &&
+		test_cmp expect R-three &&
+
+		# Compare three to expected contents
+		>empty &&
+		test_must_fail git merge-file    \
+			-L "HEAD"  -L ""  -L "R^0" \
+			L-three    empty  R-three &&
+		test_cmp three L-three
 	)
 '
 

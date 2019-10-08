@@ -6,6 +6,8 @@
 
 struct commit;
 
+struct repository;
+
 struct merge_options {
 	const char *ancestor;
 	const char *branch1;
@@ -20,6 +22,7 @@ struct merge_options {
 	unsigned renormalize : 1;
 	long xdl_opts;
 	int verbosity;
+	int detect_directory_renames;
 	int diff_detect_rename;
 	int merge_detect_rename;
 	int diff_rename_limit;
@@ -33,6 +36,7 @@ struct merge_options {
 	struct string_list df_conflict_file_set;
 	struct unpack_trees_options unpack_opts;
 	struct index_state orig_index;
+	struct repository *repo;
 };
 
 /*
@@ -91,7 +95,8 @@ int merge_recursive_generic(struct merge_options *o,
 			    const struct object_id **ca,
 			    struct commit **result);
 
-void init_merge_options(struct merge_options *o);
+void init_merge_options(struct merge_options *o,
+			struct repository *repo);
 struct tree *write_tree_from_memory(struct merge_options *o);
 
 int parse_merge_opt(struct merge_options *out, const char *s);
