@@ -610,12 +610,12 @@ static int mark_tagged(const char *path, const struct object_id *oid, int flag,
 		       void *cb_data)
 {
 	struct object_id peeled;
-	struct object_entry *entry = packlist_find(&to_pack, oid, NULL);
+	struct object_entry *entry = packlist_find(&to_pack, oid);
 
 	if (entry)
 		entry->tagged = 1;
 	if (!peel_ref(path, &peeled)) {
-		entry = packlist_find(&to_pack, &peeled, NULL);
+		entry = packlist_find(&to_pack, &peeled);
 		if (entry)
 			entry->tagged = 1;
 	}
@@ -996,12 +996,11 @@ static int no_try_delta(const char *path)
  * few lines later when we want to add the new entry.
  */
 static int have_duplicate_entry(const struct object_id *oid,
-				int exclude,
-				uint32_t *index_pos)
+				int exclude)
 {
 	struct object_entry *entry;
 
-	entry = packlist_find(&to_pack, oid, index_pos);
+	entry = packlist_find(&to_pack, oid);
 	if (!entry)
 		return 0;
 
@@ -1141,13 +1140,12 @@ static void create_object_entry(const struct object_id *oid,
 				uint32_t hash,
 				int exclude,
 				int no_try_delta,
-				uint32_t index_pos,
 				struct packed_git *found_pack,
 				off_t found_offset)
 {
 	struct object_entry *entry;
 
-	entry = packlist_alloc(&to_pack, oid->hash, index_pos);
+	entry = packlist_alloc(&to_pack, oid);
 	entry->hash = hash;
 	oe_set_type(entry, type);
 	if (exclude)
@@ -1171,11 +1169,10 @@ static int add_object_entry(const struct object_id *oid, enum object_type type,
 {
 	struct packed_git *found_pack = NULL;
 	off_t found_offset = 0;
-	uint32_t index_pos;
 
 	display_progress(progress_state, ++nr_seen);
 
-	if (have_duplicate_entry(oid, exclude, &index_pos))
+	if (have_duplicate_entry(oid, exclude))
 		return 0;
 
 	if (!want_object_in_pack(oid, exclude, &found_pack, &found_offset)) {
@@ -1190,7 +1187,7 @@ static int add_object_entry(const struct object_id *oid, enum object_type type,
 
 	create_object_entry(oid, type, pack_name_hash(name),
 			    exclude, name && no_try_delta(name),
-			    index_pos, found_pack, found_offset);
+			    found_pack, found_offset);
 	return 1;
 }
 
@@ -1199,17 +1196,15 @@ static int add_object_entry_from_bitmap(const struct object_id *oid,
 					int flags, uint32_t name_hash,
 					struct packed_git *pack, off_t offset)
 {
-	uint32_t index_pos;
-
 	display_progress(progress_state, ++nr_seen);
 
-	if (have_duplicate_entry(oid, 0, &index_pos))
+	if (have_duplicate_entry(oid, 0))
 		return 0;
 
 	if (!want_object_in_pack(oid, 0, &pack, &offset))
 		return 0;
 
-	create_object_entry(oid, type, name_hash, 0, 0, index_pos, pack, offset);
+	create_object_entry(oid, type, name_hash, 0, 0, pack, offset);
 	return 1;
 }
 
@@ -1507,7 +1502,7 @@ static int can_reuse_delta(const unsigned char *base_sha1,
 	 * First see if we're already sending the base (or it's explicitly in
 	 * our "excluded" list).
 	 */
-	base = packlist_find(&to_pack, &base_oid, NULL);
+	base = packlist_find(&to_pack, &base_oid);
 	if (base) {
 		if (!in_same_island(&delta->idx.oid, &base->idx.oid))
 			return 0;
@@ -2342,15 +2337,6 @@ static void find_deltas(struct object_entry **list, unsigned *list_size,
 	free(array);
 }
 
-static void try_to_free_from_threads(size_t size)
-{
-	packing_data_lock(&to_pack);
-	release_pack_memory(size);
-	packing_data_unlock(&to_pack);
-}
-
-static try_to_free_t old_try_to_free_routine;
-
 /*
  * The main object list is split into smaller lists, each is handed to
  * one worker.
@@ -2391,12 +2377,10 @@ static void init_threaded_search(void)
 	pthread_mutex_init(&cache_mutex, NULL);
 	pthread_mutex_init(&progress_mutex, NULL);
 	pthread_cond_init(&progress_cond, NULL);
-	old_try_to_free_routine = set_try_to_free_routine(try_to_free_from_threads);
 }
 
 static void cleanup_threaded_search(void)
 {
-	set_try_to_free_routine(old_try_to_free_routine);
 	pthread_cond_destroy(&progress_cond);
 	pthread_mutex_destroy(&cache_mutex);
 	pthread_mutex_destroy(&progress_mutex);
@@ -2579,7 +2563,7 @@ static void add_tag_chain(const struct object_id *oid)
 	 * it was included via bitmaps, we would not have parsed it
 	 * previously).
 	 */
-	if (packlist_find(&to_pack, oid, NULL))
+	if (packlist_find(&to_pack, oid))
 		return;
 
 	tag = lookup_tag(the_repository, oid);
@@ -2603,7 +2587,7 @@ static int add_ref_tag(const char *path, const struct object_id *oid, int flag, 
 
 	if (starts_with(path, "refs/tags/") && /* is a tag? */
 	    !peel_ref(path, &peeled)    && /* peelable? */
-	    packlist_find(&to_pack, &peeled, NULL))      /* object packed? */
+	    packlist_find(&to_pack, &peeled))      /* object packed? */
 		add_tag_chain(oid);
 	return 0;
 }
@@ -2715,10 +2699,6 @@ static int git_pack_config(const char *k, const char *v, void *cb)
 		use_bitmap_index_default = git_config_bool(k, v);
 		return 0;
 	}
-	if (!strcmp(k, "pack.usesparse")) {
-		sparse = git_config_bool(k, v);
-		return 0;
-	}
 	if (!strcmp(k, "pack.threads")) {
 		delta_search_threads = git_config_int(k, v);
 		if (delta_search_threads < 0)
@@ -2803,7 +2783,7 @@ static void show_object(struct object *obj, const char *name, void *data)
 		for (p = strchr(name, '/'); p; p = strchr(p + 1, '/'))
 			depth++;
 
-		ent = packlist_find(&to_pack, &obj->oid, NULL);
+		ent = packlist_find(&to_pack, &obj->oid);
 		if (ent && depth > oe_tree_depth(&to_pack, ent))
 			oe_set_tree_depth(&to_pack, ent, depth);
 	}
@@ -3034,7 +3014,7 @@ static void loosen_unused_packed_objects(void)
 
 		for (i = 0; i < p->num_objects; i++) {
 			nth_packed_object_oid(&oid, p, i);
-			if (!packlist_find(&to_pack, &oid, NULL) &&
+			if (!packlist_find(&to_pack, &oid) &&
 			    !has_sha1_pack_kept_or_nonlocal(&oid) &&
 			    !loosened_object_can_be_discarded(&oid, p->mtime))
 				if (force_object_loose(&oid, p->mtime))
@@ -3343,6 +3323,10 @@ int cmd_pack_objects(int argc, const char **argv, const char *prefix)
 	read_replace_refs = 0;
 
 	sparse = git_env_bool("GIT_TEST_PACK_SPARSE", 0);
+	prepare_repo_settings(the_repository);
+	if (!sparse && the_repository->settings.pack_use_sparse != -1)
+		sparse = the_repository->settings.pack_use_sparse;
+
 	reset_pack_idx_option(&pack_idx_opts);
 	git_config(git_pack_config, NULL);
 

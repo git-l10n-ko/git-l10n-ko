@@ -77,10 +77,11 @@ format.coverLetter::
 	A boolean that controls whether to generate a cover-letter when
 	format-patch is invoked, but in addition can be set to "auto", to
 	generate a cover-letter only when there's more than one patch.
+	Default is false.
 
 format.outputDirectory::
 	Set a custom directory to store the resulting files instead of the
-	current working directory.
+	current working directory. All directory components will be created.
 
 format.useAutoBase::
 	A boolean value which lets you enable the `--base=auto` option of

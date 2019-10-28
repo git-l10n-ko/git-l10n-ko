@@ -467,19 +467,26 @@ static void prepare_commit_graph_one(struct repository *r, const char *obj_dir)
 static int prepare_commit_graph(struct repository *r)
 {
 	struct object_directory *odb;
-	int config_value;
 
-	if (git_env_bool(GIT_TEST_COMMIT_GRAPH_DIE_ON_LOAD, 0))
-		die("dying as requested by the '%s' variable on commit-graph load!",
-		    GIT_TEST_COMMIT_GRAPH_DIE_ON_LOAD);
+	/*
+	 * This must come before the "already attempted?" check below, because
+	 * we want to disable even an already-loaded graph file.
+	 */
+	if (r->commit_graph_disabled)
+		return 0;
 
 	if (r->objects->commit_graph_attempted)
 		return !!r->objects->commit_graph;
 	r->objects->commit_graph_attempted = 1;
 
+	if (git_env_bool(GIT_TEST_COMMIT_GRAPH_DIE_ON_LOAD, 0))
+		die("dying as requested by the '%s' variable on commit-graph load!",
+		    GIT_TEST_COMMIT_GRAPH_DIE_ON_LOAD);
+
+	prepare_repo_settings(r);
+
 	if (!git_env_bool(GIT_TEST_COMMIT_GRAPH, 0) &&
-	    (repo_config_get_bool(r, "core.commitgraph", &config_value) ||
-	    !config_value))
+	    r->settings.core_commit_graph != 1)
 		/*
 		 * This repository is not configured to use commit graphs, so
 		 * do not load one. (But report commit_graph_attempted anyway
@@ -783,7 +790,8 @@ struct write_commit_graph_context {
 
 	unsigned append:1,
 		 report_progress:1,
-		 split:1;
+		 split:1,
+		 check_oids:1;
 
 	const struct split_commit_graph_opts *split_opts;
 };
@@ -838,12 +846,19 @@ static void write_graph_chunk_data(struct hashfile *f, int hash_len,
 
 	while (list < last) {
 		struct commit_list *parent;
+		struct object_id *tree;
 		int edge_value;
 		uint32_t packedDate[2];
 		display_progress(ctx->progress, ++ctx->progress_cnt);
 
-		parse_commit_no_graph(*list);
-		hashwrite(f, get_commit_tree_oid(*list)->hash, hash_len);
+		if (parse_commit_no_graph(*list))
+			die(_("unable to parse commit %s"),
+				oid_to_hex(&(*list)->object.oid));
+		tree = get_commit_tree_oid(*list);
+		if (!tree)
+			die(_("unable to get tree for %s"),
+				oid_to_hex(&(*list)->object.oid));
+		hashwrite(f, tree->hash, hash_len);
 
 		parent = (*list)->parents;
 
@@ -1049,7 +1064,7 @@ static void close_reachable(struct write_commit_graph_context *ctx)
 	if (ctx->report_progress)
 		ctx->progress = start_delayed_progress(
 					_("Expanding reachable commits in commit graph"),
-					ctx->oids.nr);
+					0);
 	for (i = 0; i < ctx->oids.nr; i++) {
 		display_progress(ctx->progress, i + 1);
 		commit = lookup_commit(ctx->r, &ctx->oids.list[i]);
@@ -1134,7 +1149,8 @@ static int add_ref_to_list(const char *refname,
 	return 0;
 }
 
-int write_commit_graph_reachable(const char *obj_dir, unsigned int flags,
+int write_commit_graph_reachable(const char *obj_dir,
+				 enum commit_graph_write_flags flags,
 				 const struct split_commit_graph_opts *split_opts)
 {
 	struct string_list list = STRING_LIST_INIT_DUP;
@@ -1193,8 +1209,8 @@ static int fill_oids_from_packs(struct write_commit_graph_context *ctx,
 	return 0;
 }
 
-static void fill_oids_from_commit_hex(struct write_commit_graph_context *ctx,
-				      struct string_list *commit_hex)
+static int fill_oids_from_commit_hex(struct write_commit_graph_context *ctx,
+				     struct string_list *commit_hex)
 {
 	uint32_t i;
 	struct strbuf progress_title = STRBUF_INIT;
@@ -1215,20 +1231,21 @@ static void fill_oids_from_commit_hex(struct write_commit_graph_context *ctx,
 		struct commit *result;
 
 		display_progress(ctx->progress, i + 1);
-		if (commit_hex->items[i].string &&
-		    parse_oid_hex(commit_hex->items[i].string, &oid, &end))
-			continue;
-
-		result = lookup_commit_reference_gently(ctx->r, &oid, 1);
-
-		if (result) {
+		if (!parse_oid_hex(commit_hex->items[i].string, &oid, &end) &&
+		    (result = lookup_commit_reference_gently(ctx->r, &oid, 1))) {
 			ALLOC_GROW(ctx->oids.list, ctx->oids.nr + 1, ctx->oids.alloc);
 			oidcpy(&ctx->oids.list[ctx->oids.nr], &(result->object.oid));
 			ctx->oids.nr++;
+		} else if (ctx->check_oids) {
+			error(_("invalid commit object id: %s"),
+			    commit_hex->items[i].string);
+			return -1;
 		}
 	}
 	stop_progress(&ctx->progress);
 	strbuf_release(&progress_title);
+
+	return 0;
 }
 
 static void fill_oids_from_all_packs(struct write_commit_graph_context *ctx)
@@ -1276,7 +1293,6 @@ static uint32_t count_distinct_commits(struct write_commit_graph_context *ctx)
 static void copy_oids_to_commits(struct write_commit_graph_context *ctx)
 {
 	uint32_t i;
-	struct commit_list *parent;
 
 	ctx->num_extra_edges = 0;
 	if (ctx->report_progress)
@@ -1284,7 +1300,8 @@ static void copy_oids_to_commits(struct write_commit_graph_context *ctx)
 			_("Finding extra edges in commit graph"),
 			ctx->oids.nr);
 	for (i = 0; i < ctx->oids.nr; i++) {
-		int num_parents = 0;
+		unsigned int num_parents;
+
 		display_progress(ctx->progress, i + 1);
 		if (i > 0 && oideq(&ctx->oids.list[i - 1], &ctx->oids.list[i]))
 			continue;
@@ -1298,10 +1315,7 @@ static void copy_oids_to_commits(struct write_commit_graph_context *ctx)
 
 		parse_commit_no_graph(ctx->commits.list[ctx->commits.nr]);
 
-		for (parent = ctx->commits.list[ctx->commits.nr]->parents;
-		     parent; parent = parent->next)
-			num_parents++;
-
+		num_parents = commit_list_count(ctx->commits.list[ctx->commits.nr]->parents);
 		if (num_parents > 2)
 			ctx->num_extra_edges += num_parents - 1;
 
@@ -1519,8 +1533,8 @@ static int write_commit_graph_file(struct write_commit_graph_context *ctx)
 
 static void split_graph_merge_strategy(struct write_commit_graph_context *ctx)
 {
-	struct commit_graph *g = ctx->r->objects->commit_graph;
-	uint32_t num_commits = ctx->commits.nr;
+	struct commit_graph *g;
+	uint32_t num_commits;
 	uint32_t i;
 
 	int max_commits = 0;
@@ -1532,6 +1546,7 @@ static void split_graph_merge_strategy(struct write_commit_graph_context *ctx)
 	}
 
 	g = ctx->r->objects->commit_graph;
+	num_commits = ctx->commits.nr;
 	ctx->num_commit_graphs_after = ctx->num_commit_graphs_before + 1;
 
 	while (g && (g->num_commits <= size_mult * num_commits ||
@@ -1613,8 +1628,7 @@ static int commit_compare(const void *_a, const void *_b)
 
 static void sort_and_scan_merged_commits(struct write_commit_graph_context *ctx)
 {
-	uint32_t i, num_parents;
-	struct commit_list *parent;
+	uint32_t i;
 
 	if (ctx->report_progress)
 		ctx->progress = start_delayed_progress(
@@ -1632,10 +1646,9 @@ static void sort_and_scan_merged_commits(struct write_commit_graph_context *ctx)
 			die(_("unexpected duplicate commit id %s"),
 			    oid_to_hex(&ctx->commits.list[i]->object.oid));
 		} else {
-			num_parents = 0;
-			for (parent = ctx->commits.list[i]->parents; parent; parent = parent->next)
-				num_parents++;
+			unsigned int num_parents;
 
+			num_parents = commit_list_count(ctx->commits.list[i]->parents);
 			if (num_parents > 2)
 				ctx->num_extra_edges += num_parents - 1;
 		}
@@ -1752,7 +1765,7 @@ out:
 int write_commit_graph(const char *obj_dir,
 		       struct string_list *pack_indexes,
 		       struct string_list *commit_hex,
-		       unsigned int flags,
+		       enum commit_graph_write_flags flags,
 		       const struct split_commit_graph_opts *split_opts)
 {
 	struct write_commit_graph_context *ctx;
@@ -1773,9 +1786,10 @@ int write_commit_graph(const char *obj_dir,
 	if (len && ctx->obj_dir[len - 1] == '/')
 		ctx->obj_dir[len - 1] = 0;
 
-	ctx->append = flags & COMMIT_GRAPH_APPEND ? 1 : 0;
-	ctx->report_progress = flags & COMMIT_GRAPH_PROGRESS ? 1 : 0;
-	ctx->split = flags & COMMIT_GRAPH_SPLIT ? 1 : 0;
+	ctx->append = flags & COMMIT_GRAPH_WRITE_APPEND ? 1 : 0;
+	ctx->report_progress = flags & COMMIT_GRAPH_WRITE_PROGRESS ? 1 : 0;
+	ctx->split = flags & COMMIT_GRAPH_WRITE_SPLIT ? 1 : 0;
+	ctx->check_oids = flags & COMMIT_GRAPH_WRITE_CHECK_OIDS ? 1 : 0;
 	ctx->split_opts = split_opts;
 
 	if (ctx->split) {
@@ -1830,8 +1844,10 @@ int write_commit_graph(const char *obj_dir,
 			goto cleanup;
 	}
 
-	if (commit_hex)
-		fill_oids_from_commit_hex(ctx, commit_hex);
+	if (commit_hex) {
+		if ((res = fill_oids_from_commit_hex(ctx, commit_hex)))
+			goto cleanup;
+	}
 
 	if (!pack_indexes && !commit_hex)
 		fill_oids_from_all_packs(ctx);
@@ -1986,8 +2002,10 @@ int verify_commit_graph(struct repository *r, struct commit_graph *g, int flags)
 	if (verify_commit_graph_error & ~VERIFY_COMMIT_GRAPH_ERROR_HASH)
 		return verify_commit_graph_error;
 
-	progress = start_progress(_("Verifying commits in commit graph"),
-				  g->num_commits);
+	if (flags & COMMIT_GRAPH_WRITE_PROGRESS)
+		progress = start_progress(_("Verifying commits in commit graph"),
+					g->num_commits);
+
 	for (i = 0; i < g->num_commits; i++) {
 		struct commit *graph_commit, *odb_commit;
 		struct commit_list *graph_parents, *odb_parents;
@@ -2094,4 +2112,9 @@ void free_commit_graph(struct commit_graph *g)
 	}
 	free(g->filename);
 	free(g);
+}
+
+void disable_commit_graph(struct repository *r)
+{
+	r->commit_graph_disabled = 1;
 }

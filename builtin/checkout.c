@@ -126,6 +126,7 @@ static int update_some(const struct object_id *oid, struct strbuf *base,
 	if (pos >= 0) {
 		struct cache_entry *old = active_cache[pos];
 		if (ce->ce_mode == old->ce_mode &&
+		    !ce_intent_to_add(old) &&
 		    oideq(&ce->oid, &old->oid)) {
 			old->ce_flags |= CE_UPDATE;
 			discard_cache_entry(ce);
@@ -708,11 +709,11 @@ static int merge_working_tree(const struct checkout_opts *opts,
 			 * give up or do a real merge, depending on
 			 * whether the merge flag was used.
 			 */
-			struct tree *result;
 			struct tree *work;
 			struct tree *old_tree;
 			struct merge_options o;
 			struct strbuf sb = STRBUF_INIT;
+			struct strbuf old_commit_shortname = STRBUF_INIT;
 
 			if (!opts->merge)
 				return 1;
@@ -728,13 +729,6 @@ static int merge_working_tree(const struct checkout_opts *opts,
 			if (repo_index_has_changes(the_repository, old_tree, &sb))
 				die(_("cannot continue with staged changes in "
 				      "the following files:\n%s"), sb.buf);
-			strbuf_release(&sb);
-
-			if (repo_index_has_changes(the_repository,
-						   get_commit_tree(old_branch_info->commit),
-						   &sb))
-				warning(_("staged changes in the following files may be lost: %s"),
-					sb.buf);
 			strbuf_release(&sb);
 
 			/* Do more real merge */
@@ -760,7 +754,7 @@ static int merge_working_tree(const struct checkout_opts *opts,
 			 */
 			init_merge_options(&o, the_repository);
 			o.verbosity = 0;
-			work = write_tree_from_memory(&o);
+			work = write_in_core_index_as_tree(the_repository);
 
 			ret = reset_tree(new_tree,
 					 opts, 1,
@@ -768,19 +762,25 @@ static int merge_working_tree(const struct checkout_opts *opts,
 			if (ret)
 				return ret;
 			o.ancestor = old_branch_info->name;
+			if (old_branch_info->name == NULL) {
+				strbuf_add_unique_abbrev(&old_commit_shortname,
+							 &old_branch_info->commit->object.oid,
+							 DEFAULT_ABBREV);
+				o.ancestor = old_commit_shortname.buf;
+			}
 			o.branch1 = new_branch_info->name;
 			o.branch2 = "local";
 			ret = merge_trees(&o,
 					  new_tree,
 					  work,
-					  old_tree,
-					  &result);
+					  old_tree);
 			if (ret < 0)
 				exit(128);
 			ret = reset_tree(new_tree,
 					 opts, 0,
 					 writeout_error);
 			strbuf_release(&o.obuf);
+			strbuf_release(&old_commit_shortname);
 			if (ret)
 				return ret;
 		}
@@ -1713,6 +1713,15 @@ int cmd_checkout(int argc, const char **argv, const char *prefix)
 	opts.overlay_mode = -1;
 	opts.checkout_index = -2;    /* default on */
 	opts.checkout_worktree = -2; /* default on */
+
+	if (argc == 3 && !strcmp(argv[1], "-b")) {
+		/*
+		 * User ran 'git checkout -b <branch>' and expects
+		 * the same behavior as 'git switch -c <branch>'.
+		 */
+		opts.switch_branch_doing_nothing_is_ok = 0;
+		opts.only_merge_on_switching_branches = 1;
+	}
 
 	options = parse_options_dup(checkout_options);
 	options = add_common_options(&opts, options);

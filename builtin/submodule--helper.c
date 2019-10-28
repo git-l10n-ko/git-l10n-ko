@@ -424,7 +424,7 @@ static int module_list(int argc, const char **argv, const char *prefix)
 		const struct cache_entry *ce = list.entries[i];
 
 		if (ce_stage(ce))
-			printf("%06o %s U\t", ce->ce_mode, sha1_to_hex(null_sha1));
+			printf("%06o %s U\t", ce->ce_mode, oid_to_hex(&null_oid));
 		else
 			printf("%06o %s %d\t", ce->ce_mode,
 			       oid_to_hex(&ce->oid), ce_stage(ce));
@@ -1874,7 +1874,7 @@ static int update_clone(int argc, const char **argv, const char *prefix)
 	};
 
 	const char *const git_submodule_helper_usage[] = {
-		N_("git submodule--helper update_clone [--prefix=<path>] [<path>...]"),
+		N_("git submodule--helper update-clone [--prefix=<path>] [<path>...]"),
 		NULL
 	};
 	suc.prefix = prefix;

@@ -77,6 +77,7 @@ void add_name_decoration(enum decoration_type type, const char *name, struct obj
 
 const struct name_decoration *get_name_decoration(const struct object *obj)
 {
+	load_ref_decorations(NULL, DECORATE_SHORT_REFS);
 	return lookup_decoration(&name_decoration, obj);
 }
 
@@ -677,9 +678,7 @@ void show_log(struct rev_info *opt)
 		raw = (opt->commit_format == CMIT_FMT_USERFORMAT);
 		format_display_notes(&commit->object.oid, &notebuf,
 				     get_log_output_encoding(), raw);
-		ctx.notes_message = notebuf.len
-			? strbuf_detach(&notebuf, NULL)
-			: xcalloc(1, 1);
+		ctx.notes_message = strbuf_detach(&notebuf, NULL);
 	}
 
 	/*

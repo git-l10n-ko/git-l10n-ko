@@ -33,6 +33,16 @@ struct helper_data {
 		check_connectivity : 1,
 		no_disconnect_req : 1,
 		no_private_update : 1;
+
+	/*
+	 * As an optimization, the transport code may invoke fetch before
+	 * get_refs_list. If this happens, and if the transport helper doesn't
+	 * support connect or stateless_connect, we need to invoke
+	 * get_refs_list ourselves if we haven't already done so. Keep track of
+	 * whether we have invoked get_refs_list.
+	 */
+	unsigned get_refs_list_called : 1;
+
 	char *export_marks;
 	char *import_marks;
 	/* These go from remote name (as in "list") to private name */
@@ -652,16 +662,24 @@ static int connect_helper(struct transport *transport, const char *name,
 	return 0;
 }
 
+static struct ref *get_refs_list_using_list(struct transport *transport,
+					    int for_push);
+
 static int fetch(struct transport *transport,
 		 int nr_heads, struct ref **to_fetch)
 {
 	struct helper_data *data = transport->data;
 	int i, count;
 
+	get_helper(transport);
+
 	if (process_connect(transport, 0)) {
 		do_take_over(transport);
 		return transport->vtable->fetch(transport, nr_heads, to_fetch);
 	}
+
+	if (!data->get_refs_list_called)
+		get_refs_list_using_list(transport, 0);
 
 	count = 0;
 	for (i = 0; i < nr_heads; i++)
@@ -682,13 +700,9 @@ static int fetch(struct transport *transport,
 		set_helper_option(transport, "update-shallow", "true");
 
 	if (data->transport_options.filter_options.choice) {
-		struct strbuf expanded_filter_spec = STRBUF_INIT;
-		expand_list_objects_filter_spec(
-			&data->transport_options.filter_options,
-			&expanded_filter_spec);
-		set_helper_option(transport, "filter",
-				  expanded_filter_spec.buf);
-		strbuf_release(&expanded_filter_spec);
+		const char *spec = expand_list_objects_filter_spec(
+			&data->transport_options.filter_options);
+		set_helper_option(transport, "filter", spec);
 	}
 
 	if (data->transport_options.negotiation_tips)
@@ -839,6 +853,10 @@ static void set_common_push_options(struct transport *transport,
 		if (set_helper_option(transport, TRANS_OPT_PUSH_CERT, "if-asked") != 0)
 			die(_("helper %s does not support --signed=if-asked"), name);
 	}
+
+	if (flags & TRANSPORT_PUSH_ATOMIC)
+		if (set_helper_option(transport, TRANS_OPT_ATOMIC, "true") != 0)
+			die(_("helper %s does not support --atomic"), name);
 
 	if (flags & TRANSPORT_PUSH_OPTIONS) {
 		struct string_list_item *item;
@@ -1059,6 +1077,19 @@ static int has_attribute(const char *attrs, const char *attr)
 static struct ref *get_refs_list(struct transport *transport, int for_push,
 				 const struct argv_array *ref_prefixes)
 {
+	get_helper(transport);
+
+	if (process_connect(transport, for_push)) {
+		do_take_over(transport);
+		return transport->vtable->get_refs_list(transport, for_push, ref_prefixes);
+	}
+
+	return get_refs_list_using_list(transport, for_push);
+}
+
+static struct ref *get_refs_list_using_list(struct transport *transport,
+					    int for_push)
+{
 	struct helper_data *data = transport->data;
 	struct child_process *helper;
 	struct ref *ret = NULL;
@@ -1066,12 +1097,8 @@ static struct ref *get_refs_list(struct transport *transport, int for_push,
 	struct ref *posn;
 	struct strbuf buf = STRBUF_INIT;
 
+	data->get_refs_list_called = 1;
 	helper = get_helper(transport);
-
-	if (process_connect(transport, for_push)) {
-		do_take_over(transport);
-		return transport->vtable->get_refs_list(transport, for_push, ref_prefixes);
-	}
 
 	if (data->push && for_push)
 		write_str_in_full(helper->in, "list for-push\n");
@@ -1119,7 +1146,6 @@ static struct ref *get_refs_list(struct transport *transport, int for_push,
 }
 
 static struct transport_vtable vtable = {
-	0,
 	set_helper_option,
 	get_refs_list,
 	fetch,

@@ -23,6 +23,15 @@ IPATTERN("ada",
 	 "[a-zA-Z][a-zA-Z0-9_]*"
 	 "|[-+]?[0-9][0-9#_.aAbBcCdDeEfF]*([eE][+-]?[0-9_]+)?"
 	 "|=>|\\.\\.|\\*\\*|:=|/=|>=|<=|<<|>>|<>"),
+PATTERNS("dts",
+	 "!;\n"
+	 "!=\n"
+	 /* lines beginning with a word optionally preceded by '&' or the root */
+	 "^[ \t]*((/[ \t]*\\{|&?[a-zA-Z_]).*)",
+	 /* -- */
+	 /* Property names and math operators */
+	 "[a-zA-Z0-9,._+?#-]+"
+	 "|[-+*/%&^|!~]|>>|<<|&&|\\|\\|"),
 IPATTERN("fortran",
 	 "!^([C*]|[ \t]*!)\n"
 	 "!^[ \t]*MODULE[ \t]+PROCEDURE[ \t]\n"

@@ -837,6 +837,21 @@ test_expect_success 'decorate-refs and decorate-refs-exclude' '
 	test_cmp expect.decorate actual
 '
 
+test_expect_success 'decorate-refs-exclude and simplify-by-decoration' '
+	cat >expect.decorate <<-\EOF &&
+	Merge-tag-reach (HEAD -> master)
+	reach (tag: reach, reach)
+	seventh (tag: seventh)
+	Merge-branch-tangle
+	Merge-branch-side-early-part-into-tangle (tangle)
+	tangle-a (tag: tangle-a)
+	EOF
+	git log -n6 --decorate=short --pretty="tformat:%f%d" \
+		--decorate-refs-exclude="*octopus*" \
+		--simplify-by-decoration >actual &&
+	test_cmp expect.decorate actual
+'
+
 test_expect_success 'log.decorate config parsing' '
 	git log --oneline --decorate=full >expect.full &&
 	git log --oneline --decorate=short >expect.short &&
@@ -1705,6 +1720,13 @@ test_expect_success 'log --source paints symmetric ranges' '
 
 test_expect_success '--exclude-promisor-objects does not BUG-crash' '
 	test_must_fail git log --exclude-promisor-objects source-a
+'
+
+test_expect_success 'log --end-of-options' '
+       git update-ref refs/heads/--source HEAD &&
+       git log --end-of-options --source >actual &&
+       git log >expect &&
+       test_cmp expect actual
 '
 
 test_done

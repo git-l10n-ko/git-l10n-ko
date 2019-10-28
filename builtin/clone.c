@@ -32,7 +32,6 @@
 #include "connected.h"
 #include "packfile.h"
 #include "list-objects-filter-options.h"
-#include "object-store.h"
 
 /*
  * Overall FIXMEs:
@@ -785,7 +784,7 @@ static int checkout(int submodule_progress)
 	if (write_locked_index(&the_index, &lock_file, COMMIT_LOCK))
 		die(_("unable to write new index file"));
 
-	err |= run_hook_le(NULL, "post-checkout", sha1_to_hex(null_sha1),
+	err |= run_hook_le(NULL, "post-checkout", oid_to_hex(&null_oid),
 			   oid_to_hex(&oid), "1", NULL);
 
 	if (!err && (option_recurse_submodules.nr > 0)) {
@@ -1160,13 +1159,11 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 		transport->server_options = &server_options;
 
 	if (filter_options.choice) {
-		struct strbuf expanded_filter_spec = STRBUF_INIT;
-		expand_list_objects_filter_spec(&filter_options,
-						&expanded_filter_spec);
+		const char *spec =
+			expand_list_objects_filter_spec(&filter_options);
 		transport_set_option(transport, TRANS_OPT_LIST_OBJECTS_FILTER,
-				     expanded_filter_spec.buf);
+				     spec);
 		transport_set_option(transport, TRANS_OPT_FROM_PROMISOR, "1");
-		strbuf_release(&expanded_filter_spec);
 	}
 
 	if (transport->smart_options && !deepen && !filter_options.choice)

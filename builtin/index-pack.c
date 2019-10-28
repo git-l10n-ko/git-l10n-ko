@@ -14,7 +14,7 @@
 #include "thread-utils.h"
 #include "packfile.h"
 #include "object-store.h"
-#include "fetch-object.h"
+#include "promisor-remote.h"
 
 static const char index_pack_usage[] =
 "git index-pack [-v] [-o <index-file>] [--keep | --keep=<msg>] [--verify] [--strict] (<pack-file> | --stdin [--fix-thin] [<pack-file>])";
@@ -1352,7 +1352,7 @@ static void fix_unresolved_deltas(struct hashfile *f)
 		sorted_by_pos[i] = &ref_deltas[i];
 	QSORT(sorted_by_pos, nr_ref_deltas, delta_pos_compare);
 
-	if (repository_format_partial_clone) {
+	if (has_promisor_remote()) {
 		/*
 		 * Prefetch the delta bases.
 		 */
@@ -1366,8 +1366,8 @@ static void fix_unresolved_deltas(struct hashfile *f)
 			oid_array_append(&to_fetch, &d->oid);
 		}
 		if (to_fetch.nr)
-			fetch_objects(repository_format_partial_clone,
-				      to_fetch.oid, to_fetch.nr);
+			promisor_remote_get_direct(the_repository,
+						   to_fetch.oid, to_fetch.nr);
 		oid_array_clear(&to_fetch);
 	}
 
@@ -1490,11 +1490,11 @@ static void final(const char *final_pack_name, const char *curr_pack_name,
 	}
 
 	if (!from_stdin) {
-		printf("%s\n", sha1_to_hex(hash));
+		printf("%s\n", hash_to_hex(hash));
 	} else {
 		struct strbuf buf = STRBUF_INIT;
 
-		strbuf_addf(&buf, "%s\t%s\n", report, sha1_to_hex(hash));
+		strbuf_addf(&buf, "%s\t%s\n", report, hash_to_hex(hash));
 		write_or_die(1, buf.buf, buf.len);
 		strbuf_release(&buf);
 

@@ -18,7 +18,6 @@
 #include "reflog-walk.h"
 #include "oidset.h"
 #include "packfile.h"
-#include "object-store.h"
 
 static const char rev_list_usage[] =
 "git rev-list [OPTION] <commit-id>... [ -- paths... ]\n"
@@ -471,10 +470,6 @@ int cmd_rev_list(int argc, const char **argv, const char *prefix)
 			parse_list_objects_filter(&filter_options, arg);
 			if (filter_options.choice && !revs.blob_objects)
 				die(_("object filtering requires --objects"));
-			if (filter_options.choice == LOFC_SPARSE_OID &&
-			    !filter_options.sparse_oid_value)
-				die(_("invalid sparse value '%s'"),
-				    filter_options.filter_spec);
 			continue;
 		}
 		if (!strcmp(arg, ("--no-" CL_ARG__FILTER))) {

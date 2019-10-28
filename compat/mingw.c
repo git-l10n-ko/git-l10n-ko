@@ -1161,14 +1161,21 @@ static char *lookup_prog(const char *dir, int dirlen, const char *cmd,
 			 int isexe, int exe_only)
 {
 	char path[MAX_PATH];
+	wchar_t wpath[MAX_PATH];
 	snprintf(path, sizeof(path), "%.*s\\%s.exe", dirlen, dir, cmd);
 
-	if (!isexe && access(path, F_OK) == 0)
+	if (xutftowcs_path(wpath, path) < 0)
+		return NULL;
+
+	if (!isexe && _waccess(wpath, F_OK) == 0)
 		return xstrdup(path);
-	path[strlen(path)-4] = '\0';
-	if ((!exe_only || isexe) && access(path, F_OK) == 0)
-		if (!(GetFileAttributes(path) & FILE_ATTRIBUTE_DIRECTORY))
+	wpath[wcslen(wpath)-4] = '\0';
+	if ((!exe_only || isexe) && _waccess(wpath, F_OK) == 0) {
+		if (!(GetFileAttributesW(wpath) & FILE_ATTRIBUTE_DIRECTORY)) {
+			path[strlen(path)-4] = '\0';
 			return xstrdup(path);
+		}
+	}
 	return NULL;
 }
 
@@ -1229,11 +1236,6 @@ static int wenvcmp(const void *a, const void *b)
 	return _wcsnicmp(p, q, p_len);
 }
 
-/* We need a stable sort to convert the environment between UTF-16 <-> UTF-8 */
-#ifndef INTERNAL_QSORT
-#include "qsort.c"
-#endif
-
 /*
  * Build an environment block combining the inherited environment
  * merged with the given list of settings.
@@ -1265,15 +1267,15 @@ static wchar_t *make_environment_block(char **deltaenv)
 		}
 
 		ALLOC_ARRAY(result, size);
-		memcpy(result, wenv, size * sizeof(*wenv));
+		COPY_ARRAY(result, wenv, size);
 		FreeEnvironmentStringsW(wenv);
 		return result;
 	}
 
 	/*
 	 * If there is a deltaenv, let's accumulate all keys into `array`,
-	 * sort them using the stable git_qsort() and then copy, skipping
-	 * duplicate keys
+	 * sort them using the stable git_stable_qsort() and then copy,
+	 * skipping duplicate keys
 	 */
 	for (p = wenv; p && *p; ) {
 		ALLOC_GROW(array, nr + 1, alloc);
@@ -1296,7 +1298,7 @@ static wchar_t *make_environment_block(char **deltaenv)
 		p += wlen + 1;
 	}
 
-	git_qsort(array, nr, sizeof(*array), wenvcmp);
+	git_stable_qsort(array, nr, sizeof(*array), wenvcmp);
 	ALLOC_ARRAY(result, size + delta_size);
 
 	for (p = result, i = 0; i < nr; i++) {
@@ -1309,7 +1311,7 @@ static wchar_t *make_environment_block(char **deltaenv)
 			continue;
 
 		size = wcslen(array[i]) + 1;
-		memcpy(p, array[i], size * sizeof(*p));
+		COPY_ARRAY(p, array[i], size);
 		p += size;
 	}
 	*p = L'\0';
@@ -1663,6 +1665,8 @@ char *mingw_getenv(const char *name)
 	if (!w_key)
 		die("Out of memory, (tried to allocate %u wchar_t's)", len_key);
 	xutftowcs(w_key, name, len_key);
+	/* GetEnvironmentVariableW() only sets the last error upon failure */
+	SetLastError(ERROR_SUCCESS);
 	len_value = GetEnvironmentVariableW(w_key, w_value, ARRAY_SIZE(w_value));
 	if (!len_value && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
 		free(w_key);

@@ -434,7 +434,6 @@ test_expect_success 'double quoted plink.exe in GIT_SSH_COMMAND' '
 	expect_ssh "-v -P 123" myhost src
 '
 
-SQ="'"
 test_expect_success 'single quoted plink.exe in GIT_SSH_COMMAND' '
 	copy_ssh_wrapper_as "$TRASH_DIRECTORY/plink.exe" &&
 	GIT_SSH_COMMAND="$SQ$TRASH_DIRECTORY/plink.exe$SQ -v" \
@@ -654,7 +653,8 @@ partial_clone () {
 	git -C client fsck &&
 
 	# Ensure that unneeded blobs are not inadvertently fetched.
-	test_config -C client extensions.partialclone "not a remote" &&
+	test_config -C client remote.origin.promisor "false" &&
+	git -C client config --unset remote.origin.partialclonefilter &&
 	test_must_fail git -C client cat-file -e "$HASH1" &&
 
 	# But this blob was fetched, because clone performs an initial checkout
@@ -738,5 +738,8 @@ start_httpd
 test_expect_success 'partial clone using HTTP' '
 	partial_clone "$HTTPD_DOCUMENT_ROOT_PATH/server" "$HTTPD_URL/smart/server"
 '
+
+# DO NOT add non-httpd-specific tests here, because the last part of this
+# test script is only executed when httpd is available and enabled.
 
 test_done

@@ -24,7 +24,6 @@
 #include "sequencer.h"
 #include "revision.h"
 #include "merge-recursive.h"
-#include "revision.h"
 #include "log-tree.h"
 #include "notes-utils.h"
 #include "rerere.h"
@@ -1072,19 +1071,6 @@ static const char *msgnum(const struct am_state *state)
 }
 
 /**
- * Refresh and write index.
- */
-static void refresh_and_write_cache(void)
-{
-	struct lock_file lock_file = LOCK_INIT;
-
-	hold_locked_index(&lock_file, LOCK_DIE_ON_ERROR);
-	refresh_cache(REFRESH_QUIET);
-	if (write_locked_index(&the_index, &lock_file, COMMIT_LOCK))
-		die(_("unable to write index file"));
-}
-
-/**
  * Dies with a user-friendly message on how to proceed after resolving the
  * problem. This message can be overridden with state->resolvemsg.
  */
@@ -1272,7 +1258,9 @@ static void get_commit_info(struct am_state *state, struct commit *commit)
 	buffer = logmsg_reencode(commit, NULL, get_commit_output_encoding());
 
 	ident_line = find_commit_header(buffer, "author", &ident_len);
-
+	if (!ident_line)
+		die(_("missing author line in commit %s"),
+		      oid_to_hex(&commit->object.oid));
 	if (split_ident_line(&id, ident_line, ident_len) < 0)
 		die(_("invalid ident line: %.*s"), (int)ident_len, ident_line);
 
@@ -1538,7 +1526,7 @@ static int fall_back_threeway(const struct am_state *state, const char *index_pa
 	o.branch1 = "HEAD";
 	their_tree_name = xstrfmt("%.*s", linelen(state->msg), state->msg);
 	o.branch2 = their_tree_name;
-	o.detect_directory_renames = 0;
+	o.detect_directory_renames = MERGE_DIRECTORY_RENAMES_NONE;
 
 	if (state->quiet)
 		o.verbosity = 0;
@@ -1703,7 +1691,8 @@ static void am_run(struct am_state *state, int resume)
 
 	unlink(am_path(state, "dirtyindex"));
 
-	refresh_and_write_cache();
+	if (refresh_and_write_cache(REFRESH_QUIET, 0, 0) < 0)
+		die(_("unable to write index file"));
 
 	if (repo_index_has_changes(the_repository, NULL, &sb)) {
 		write_state_bool(state, "dirtyindex", 1);

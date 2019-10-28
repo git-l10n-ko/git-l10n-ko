@@ -30,8 +30,8 @@
 #include "mergesort.h"
 #include "quote.h"
 #include "packfile.h"
-#include "fetch-object.h"
 #include "object-store.h"
+#include "promisor-remote.h"
 
 /* The maximum size for an object header. */
 #define MAX_HEADER_LEN 32
@@ -55,7 +55,6 @@
 	"\x6f\xe1\x41\xf7\x74\x91\x20\xa3\x03\x72" \
 	"\x18\x13"
 
-const unsigned char null_sha1[GIT_MAX_RAWSZ];
 const struct object_id null_oid;
 static const struct object_id empty_tree_oid = {
 	EMPTY_TREE_SHA1_BIN_LITERAL
@@ -952,12 +951,8 @@ void *xmmap_gently(void *start, size_t length,
 
 	mmap_limit_check(length);
 	ret = mmap(start, length, prot, flags, fd, offset);
-	if (ret == MAP_FAILED) {
-		if (!length)
-			return NULL;
-		release_pack_memory(length);
-		ret = mmap(start, length, prot, flags, fd, offset);
-	}
+	if (ret == MAP_FAILED && !length)
+		ret = NULL;
 	return ret;
 }
 
@@ -1475,16 +1470,17 @@ int oid_object_info_extended(struct repository *r, const struct object_id *oid,
 		}
 
 		/* Check if it is a missing object */
-		if (fetch_if_missing && repository_format_partial_clone &&
+		if (fetch_if_missing && has_promisor_remote() &&
 		    !already_retried && r == the_repository &&
 		    !(flags & OBJECT_INFO_SKIP_FETCH_OBJECT)) {
 			/*
-			 * TODO Investigate having fetch_object() return
-			 * TODO error/success and stopping the music here.
-			 * TODO Pass a repository struct through fetch_object,
-			 * such that arbitrary repositories work.
+			 * TODO Investigate checking promisor_remote_get_direct()
+			 * TODO return value and stopping on error here.
+			 * TODO Pass a repository struct through
+			 * promisor_remote_get_direct(), such that arbitrary
+			 * repositories work.
 			 */
-			fetch_objects(repository_format_partial_clone, real, 1);
+			promisor_remote_get_direct(r, real, 1);
 			already_retried = 1;
 			continue;
 		}

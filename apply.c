@@ -1361,11 +1361,32 @@ int parse_git_diff_header(struct strbuf *root,
 			if (check_header_line(*linenr, patch))
 				return -1;
 			if (res > 0)
-				return offset;
+				goto done;
 			break;
 		}
 	}
 
+done:
+	if (!patch->old_name && !patch->new_name) {
+		if (!patch->def_name) {
+			error(Q_("git diff header lacks filename information when removing "
+				 "%d leading pathname component (line %d)",
+				 "git diff header lacks filename information when removing "
+				 "%d leading pathname components (line %d)",
+				 parse_hdr_state.p_value),
+			      parse_hdr_state.p_value, *linenr);
+			return -128;
+		}
+		patch->old_name = xstrdup(patch->def_name);
+		patch->new_name = xstrdup(patch->def_name);
+	}
+	if ((!patch->new_name && !patch->is_delete) ||
+	    (!patch->old_name && !patch->is_new)) {
+		error(_("git diff header lacks filename information "
+			"(line %d)"), *linenr);
+		return -128;
+	}
+	patch->is_toplevel_relative = 1;
 	return offset;
 }
 
@@ -1546,26 +1567,6 @@ static int find_header(struct apply_state *state,
 				return -128;
 			if (git_hdr_len <= len)
 				continue;
-			if (!patch->old_name && !patch->new_name) {
-				if (!patch->def_name) {
-					error(Q_("git diff header lacks filename information when removing "
-							"%d leading pathname component (line %d)",
-							"git diff header lacks filename information when removing "
-							"%d leading pathname components (line %d)",
-							state->p_value),
-						     state->p_value, state->linenr);
-					return -128;
-				}
-				patch->old_name = xstrdup(patch->def_name);
-				patch->new_name = xstrdup(patch->def_name);
-			}
-			if ((!patch->new_name && !patch->is_delete) ||
-			    (!patch->old_name && !patch->is_new)) {
-				error(_("git diff header lacks filename information "
-					     "(line %d)"), state->linenr);
-				return -128;
-			}
-			patch->is_toplevel_relative = 1;
 			*hdrsize = git_hdr_len;
 			return offset;
 		}
@@ -4643,6 +4644,7 @@ static int apply_patch(struct apply_state *state,
 	struct patch *list = NULL, **listp = &list;
 	int skipped_patch = 0;
 	int res = 0;
+	int flush_attributes = 0;
 
 	state->patch_input_file = filename;
 	if (read_patch_file(&buf, fd) < 0)
@@ -4670,6 +4672,14 @@ static int apply_patch(struct apply_state *state,
 			patch_stats(state, patch);
 			*listp = patch;
 			listp = &patch->next;
+
+			if ((patch->new_name &&
+			     ends_with_path_components(patch->new_name,
+						       GITATTRIBUTES_FILE)) ||
+			    (patch->old_name &&
+			     ends_with_path_components(patch->old_name,
+						       GITATTRIBUTES_FILE)))
+				flush_attributes = 1;
 		}
 		else {
 			if (state->apply_verbosity > verbosity_normal)
@@ -4746,6 +4756,8 @@ static int apply_patch(struct apply_state *state,
 	if (state->summary && state->apply_verbosity > verbosity_silent)
 		summary_patch_list(list);
 
+	if (flush_attributes)
+		reset_parsed_attributes();
 end:
 	free_patch_list(list);
 	strbuf_release(&buf);

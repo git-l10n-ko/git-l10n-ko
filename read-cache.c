@@ -1276,7 +1276,7 @@ static int add_index_entry_with_check(struct index_state *istate, struct cache_e
 	 */
 	if (istate->cache_nr > 0 &&
 		strcmp(ce->name, istate->cache[istate->cache_nr - 1]->name) > 0)
-		pos = -istate->cache_nr - 1;
+		pos = index_pos_to_insert_pos(istate->cache_nr);
 	else
 		pos = index_name_stage_pos(istate, ce->name, ce_namelen(ce), ce_stage(ce));
 
@@ -1472,6 +1472,27 @@ static void show_file(const char * fmt, const char * name, int in_porcelain,
 	printf(fmt, name);
 }
 
+int repo_refresh_and_write_index(struct repository *repo,
+				 unsigned int refresh_flags,
+				 unsigned int write_flags,
+				 int gentle,
+				 const struct pathspec *pathspec,
+				 char *seen, const char *header_msg)
+{
+	struct lock_file lock_file = LOCK_INIT;
+	int fd, ret = 0;
+
+	fd = repo_hold_locked_index(repo, &lock_file, 0);
+	if (!gentle && fd < 0)
+		return -1;
+	if (refresh_index(repo->index, refresh_flags, pathspec, seen, header_msg))
+		ret = 1;
+	if (0 <= fd && write_locked_index(repo->index, &lock_file, COMMIT_LOCK | write_flags))
+		ret = -1;
+	return ret;
+}
+
+
 int refresh_index(struct index_state *istate, unsigned int flags,
 		  const struct pathspec *pathspec,
 		  char *seen, const char *header_msg)
@@ -1599,16 +1620,17 @@ struct cache_entry *refresh_cache_entry(struct index_state *istate,
 
 #define INDEX_FORMAT_DEFAULT 3
 
-static unsigned int get_index_format_default(void)
+static unsigned int get_index_format_default(struct repository *r)
 {
 	char *envversion = getenv("GIT_INDEX_VERSION");
 	char *endp;
-	int value;
 	unsigned int version = INDEX_FORMAT_DEFAULT;
 
 	if (!envversion) {
-		if (!git_config_get_int("index.version", &value))
-			version = value;
+		prepare_repo_settings(r);
+
+		if (r->settings.index_version >= 0)
+			version = r->settings.index_version;
 		if (version < INDEX_FORMAT_LB || INDEX_FORMAT_UB < version) {
 			warning(_("index.version set, but the value is invalid.\n"
 				  "Using version %i"), INDEX_FORMAT_DEFAULT);
@@ -1844,18 +1866,17 @@ static void check_ce_order(struct index_state *istate)
 
 static void tweak_untracked_cache(struct index_state *istate)
 {
-	switch (git_config_get_untracked_cache()) {
-	case -1: /* keep: do nothing */
-		break;
-	case 0: /* false */
+	struct repository *r = the_repository;
+
+	prepare_repo_settings(r);
+
+	if (r->settings.core_untracked_cache  == UNTRACKED_CACHE_REMOVE) {
 		remove_untracked_cache(istate);
-		break;
-	case 1: /* true */
-		add_untracked_cache(istate);
-		break;
-	default: /* unknown value: do nothing */
-		break;
+		return;
 	}
+
+	if (r->settings.core_untracked_cache == UNTRACKED_CACHE_WRITE)
+		add_untracked_cache(istate);
 }
 
 static void tweak_split_index(struct index_state *istate)
@@ -1894,7 +1915,7 @@ static size_t estimate_cache_size(size_t ondisk_size, unsigned int entries)
 	/*
 	 * Account for potential alignment differences.
 	 */
-	per_entry += align_padding_size(sizeof(struct cache_entry), -sizeof(struct ondisk_cache_entry));
+	per_entry += align_padding_size(per_entry, 0);
 	return ondisk_size + entries * per_entry;
 }
 
@@ -2765,7 +2786,7 @@ static int do_write_index(struct index_state *istate, struct tempfile *tempfile,
 	}
 
 	if (!istate->version) {
-		istate->version = get_index_format_default();
+		istate->version = get_index_format_default(the_repository);
 		if (git_env_bool("GIT_TEST_SPLIT_INDEX", 0))
 			init_split_index(istate);
 	}

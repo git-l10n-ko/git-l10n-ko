@@ -5,6 +5,7 @@
 #include "cache-tree.h"
 #include "object-store.h"
 #include "replace-object.h"
+#include "promisor-remote.h"
 
 #ifndef DEBUG_CACHE_TREE
 #define DEBUG_CACHE_TREE 0
@@ -357,7 +358,7 @@ static int update_one(struct cache_tree *it,
 		}
 
 		ce_missing_ok = mode == S_IFGITLINK || missing_ok ||
-			(repository_format_partial_clone &&
+			(has_promisor_remote() &&
 			 ce_skip_worktree(ce));
 		if (is_null_oid(oid) ||
 		    (!ce_missing_ok && !has_object_file(oid))) {
@@ -407,7 +408,7 @@ static int update_one(struct cache_tree *it,
 	if (repair) {
 		struct object_id oid;
 		hash_object_file(buffer.buf, buffer.len, tree_type, &oid);
-		if (has_object_file(&oid))
+		if (has_object_file_with_flags(&oid, OBJECT_INFO_SKIP_FETCH_OBJECT))
 			oidcpy(&it->oid, &oid);
 		else
 			to_invalidate = 1;
@@ -608,11 +609,66 @@ static struct cache_tree *cache_tree_find(struct cache_tree *it, const char *pat
 	return it;
 }
 
+static int write_index_as_tree_internal(struct object_id *oid,
+					struct index_state *index_state,
+					int cache_tree_valid,
+					int flags,
+					const char *prefix)
+{
+	if (flags & WRITE_TREE_IGNORE_CACHE_TREE) {
+		cache_tree_free(&index_state->cache_tree);
+		cache_tree_valid = 0;
+	}
+
+	if (!index_state->cache_tree)
+		index_state->cache_tree = cache_tree();
+
+	if (!cache_tree_valid && cache_tree_update(index_state, flags) < 0)
+		return WRITE_TREE_UNMERGED_INDEX;
+
+	if (prefix) {
+		struct cache_tree *subtree;
+		subtree = cache_tree_find(index_state->cache_tree, prefix);
+		if (!subtree)
+			return WRITE_TREE_PREFIX_ERROR;
+		oidcpy(oid, &subtree->oid);
+	}
+	else
+		oidcpy(oid, &index_state->cache_tree->oid);
+
+	return 0;
+}
+
+struct tree* write_in_core_index_as_tree(struct repository *repo) {
+	struct object_id o;
+	int was_valid, ret;
+
+	struct index_state *index_state	= repo->index;
+	was_valid = index_state->cache_tree &&
+		    cache_tree_fully_valid(index_state->cache_tree);
+
+	ret = write_index_as_tree_internal(&o, index_state, was_valid, 0, NULL);
+	if (ret == WRITE_TREE_UNMERGED_INDEX) {
+		int i;
+		fprintf(stderr, "BUG: There are unmerged index entries:\n");
+		for (i = 0; i < index_state->cache_nr; i++) {
+			const struct cache_entry *ce = index_state->cache[i];
+			if (ce_stage(ce))
+				fprintf(stderr, "BUG: %d %.*s\n", ce_stage(ce),
+					(int)ce_namelen(ce), ce->name);
+		}
+		BUG("unmerged index entries when writing inmemory index");
+	}
+
+	return lookup_tree(repo, &index_state->cache_tree->oid);
+}
+
+
 int write_index_as_tree(struct object_id *oid, struct index_state *index_state, const char *index_path, int flags, const char *prefix)
 {
 	int entries, was_valid;
 	struct lock_file lock_file = LOCK_INIT;
-	int ret = 0;
+	int ret;
 
 	hold_lock_file_for_update(&lock_file, index_path, LOCK_DIE_ON_ERROR);
 
@@ -621,18 +677,14 @@ int write_index_as_tree(struct object_id *oid, struct index_state *index_state, 
 		ret = WRITE_TREE_UNREADABLE_INDEX;
 		goto out;
 	}
-	if (flags & WRITE_TREE_IGNORE_CACHE_TREE)
-		cache_tree_free(&index_state->cache_tree);
 
-	if (!index_state->cache_tree)
-		index_state->cache_tree = cache_tree();
+	was_valid = !(flags & WRITE_TREE_IGNORE_CACHE_TREE) &&
+		    index_state->cache_tree &&
+		    cache_tree_fully_valid(index_state->cache_tree);
 
-	was_valid = cache_tree_fully_valid(index_state->cache_tree);
-	if (!was_valid) {
-		if (cache_tree_update(index_state, flags) < 0) {
-			ret = WRITE_TREE_UNMERGED_INDEX;
-			goto out;
-		}
+	ret = write_index_as_tree_internal(oid, index_state, was_valid, flags,
+					   prefix);
+	if (!ret && !was_valid) {
 		write_locked_index(index_state, &lock_file, COMMIT_LOCK);
 		/* Not being able to write is fine -- we are only interested
 		 * in updating the cache-tree part, and if the next caller
@@ -641,18 +693,6 @@ int write_index_as_tree(struct object_id *oid, struct index_state *index_state, 
 		 * performance penalty and not a big deal.
 		 */
 	}
-
-	if (prefix) {
-		struct cache_tree *subtree;
-		subtree = cache_tree_find(index_state->cache_tree, prefix);
-		if (!subtree) {
-			ret = WRITE_TREE_PREFIX_ERROR;
-			goto out;
-		}
-		oidcpy(oid, &subtree->oid);
-	}
-	else
-		oidcpy(oid, &index_state->cache_tree->oid);
 
 out:
 	rollback_lock_file(&lock_file);
@@ -713,7 +753,7 @@ static struct cache_tree *find_cache_tree_from_traversal(struct cache_tree *root
 	if (!info->prev)
 		return root;
 	our_parent = find_cache_tree_from_traversal(root, info->prev);
-	return cache_tree_find(our_parent, info->name.path);
+	return cache_tree_find(our_parent, info->name);
 }
 
 int cache_tree_matches_traversal(struct cache_tree *root,

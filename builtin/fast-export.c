@@ -40,6 +40,7 @@ static int no_data;
 static int full_tree;
 static int reference_excluded_commits;
 static int show_original_ids;
+static int mark_tags;
 static struct string_list extra_refs = STRING_LIST_INIT_NODUP;
 static struct string_list tag_refs = STRING_LIST_INIT_NODUP;
 static struct refspec refspecs = REFSPEC_INIT_FETCH;
@@ -126,10 +127,15 @@ struct anonymized_entry {
 };
 
 static int anonymized_entry_cmp(const void *unused_cmp_data,
-				const void *va, const void *vb,
+				const struct hashmap_entry *eptr,
+				const struct hashmap_entry *entry_or_key,
 				const void *unused_keydata)
 {
-	const struct anonymized_entry *a = va, *b = vb;
+	const struct anonymized_entry *a, *b;
+
+	a = container_of(eptr, const struct anonymized_entry, hash);
+	b = container_of(entry_or_key, const struct anonymized_entry, hash);
+
 	return a->orig_len != b->orig_len ||
 		memcmp(a->orig, b->orig, a->orig_len);
 }
@@ -148,10 +154,10 @@ static const void *anonymize_mem(struct hashmap *map,
 	if (!map->cmpfn)
 		hashmap_init(map, anonymized_entry_cmp, NULL, 0);
 
-	hashmap_entry_init(&key, memhash(orig, *len));
+	hashmap_entry_init(&key.hash, memhash(orig, *len));
 	key.orig = orig;
 	key.orig_len = *len;
-	ret = hashmap_get(map, &key, NULL);
+	ret = hashmap_get_entry(map, &key, hash, NULL);
 
 	if (!ret) {
 		ret = xmalloc(sizeof(*ret));
@@ -160,7 +166,7 @@ static const void *anonymize_mem(struct hashmap *map,
 		ret->orig_len = *len;
 		ret->anon = generate(orig, len);
 		ret->anon_len = *len;
-		hashmap_put(map, ret);
+		hashmap_put(map, &ret->hash);
 	}
 
 	*len = ret->anon_len;
@@ -842,25 +848,40 @@ static void handle_tag(const char *name, struct tag *tag)
 			free(buf);
 			return;
 		case REWRITE:
-			if (tagged->type != OBJ_COMMIT) {
-				die("tag %s tags unexported %s!",
-				    oid_to_hex(&tag->object.oid),
-				    type_name(tagged->type));
+			if (tagged->type == OBJ_TAG && !mark_tags) {
+				die(_("Error: Cannot export nested tags unless --mark-tags is specified."));
+			} else if (tagged->type == OBJ_COMMIT) {
+				p = rewrite_commit((struct commit *)tagged);
+				if (!p) {
+					printf("reset %s\nfrom %s\n\n",
+					       name, oid_to_hex(&null_oid));
+					free(buf);
+					return;
+				}
+				tagged_mark = get_object_mark(&p->object);
+			} else {
+				/* tagged->type is either OBJ_BLOB or OBJ_TAG */
+				tagged_mark = get_object_mark(tagged);
 			}
-			p = rewrite_commit((struct commit *)tagged);
-			if (!p) {
-				printf("reset %s\nfrom %s\n\n",
-				       name, oid_to_hex(&null_oid));
-				free(buf);
-				return;
-			}
-			tagged_mark = get_object_mark(&p->object);
 		}
 	}
 
+	if (tagged->type == OBJ_TAG) {
+		printf("reset %s\nfrom %s\n\n",
+		       name, oid_to_hex(&null_oid));
+	}
 	if (starts_with(name, "refs/tags/"))
 		name += 10;
-	printf("tag %s\nfrom :%d\n", name, tagged_mark);
+	printf("tag %s\n", name);
+	if (mark_tags) {
+		mark_next_object(&tag->object);
+		printf("mark :%"PRIu32"\n", last_idnum);
+	}
+	if (tagged_mark)
+		printf("from :%d\n", tagged_mark);
+	else
+		printf("from %s\n", oid_to_hex(&tagged->oid));
+
 	if (show_original_ids)
 		printf("original-oid %s\n", oid_to_hex(&tag->object.oid));
 	printf("%.*s%sdata %d\n%.*s\n",
@@ -1047,11 +1068,16 @@ static void export_marks(char *file)
 		error("Unable to write marks file %s.", file);
 }
 
-static void import_marks(char *input_file)
+static void import_marks(char *input_file, int check_exists)
 {
 	char line[512];
-	FILE *f = xfopen(input_file, "r");
+	FILE *f;
+	struct stat sb;
 
+	if (check_exists && stat(input_file, &sb))
+		return;
+
+	f = xfopen(input_file, "r");
 	while (fgets(line, sizeof(line), f)) {
 		uint32_t mark;
 		char *line_end, *mark_end;
@@ -1115,7 +1141,9 @@ int cmd_fast_export(int argc, const char **argv, const char *prefix)
 	struct rev_info revs;
 	struct object_array commits = OBJECT_ARRAY_INIT;
 	struct commit *commit;
-	char *export_filename = NULL, *import_filename = NULL;
+	char *export_filename = NULL,
+	     *import_filename = NULL,
+	     *import_filename_if_exists = NULL;
 	uint32_t lastimportid;
 	struct string_list refspecs_list = STRING_LIST_INIT_NODUP;
 	struct string_list paths_of_changed_objects = STRING_LIST_INIT_DUP;
@@ -1135,6 +1163,10 @@ int cmd_fast_export(int argc, const char **argv, const char *prefix)
 			     N_("Dump marks to this file")),
 		OPT_STRING(0, "import-marks", &import_filename, N_("file"),
 			     N_("Import marks from this file")),
+		OPT_STRING(0, "import-marks-if-exists",
+			     &import_filename_if_exists,
+			     N_("file"),
+			     N_("Import marks from this file if it exists")),
 		OPT_BOOL(0, "fake-missing-tagger", &fake_missing_tagger,
 			 N_("Fake a tagger when tags lack one")),
 		OPT_BOOL(0, "full-tree", &full_tree,
@@ -1149,6 +1181,8 @@ int cmd_fast_export(int argc, const char **argv, const char *prefix)
 			 &reference_excluded_commits, N_("Reference parents which are not in fast-export stream by object id")),
 		OPT_BOOL(0, "show-original-ids", &show_original_ids,
 			    N_("Show original object ids of blobs/commits")),
+		OPT_BOOL(0, "mark-tags", &mark_tags,
+			    N_("Label tags with mark ids")),
 
 		OPT_END()
 	};
@@ -1182,8 +1216,12 @@ int cmd_fast_export(int argc, const char **argv, const char *prefix)
 	if (use_done_feature)
 		printf("feature done\n");
 
+	if (import_filename && import_filename_if_exists)
+		die(_("Cannot pass both --import-marks and --import-marks-if-exists"));
 	if (import_filename)
-		import_marks(import_filename);
+		import_marks(import_filename, 0);
+	else if (import_filename_if_exists)
+		import_marks(import_filename_if_exists, 1);
 	lastimportid = last_idnum;
 
 	if (import_filename && revs.prune_data.nr)

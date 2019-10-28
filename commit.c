@@ -358,14 +358,15 @@ struct tree *repo_get_commit_tree(struct repository *r,
 
 struct object_id *get_commit_tree_oid(const struct commit *commit)
 {
-	return &get_commit_tree(commit)->object.oid;
+	struct tree *tree = get_commit_tree(commit);
+	return tree ? &tree->object.oid : NULL;
 }
 
 void release_commit_memory(struct parsed_object_pool *pool, struct commit *c)
 {
 	set_commit_tree(c, NULL);
-	c->index = 0;
 	free_commit_buffer(pool, c);
+	c->index = 0;
 	free_commit_list(c->parents);
 
 	c->object.parsed = 0;

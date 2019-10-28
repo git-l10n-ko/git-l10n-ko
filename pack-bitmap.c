@@ -709,9 +709,7 @@ struct bitmap_index *prepare_bitmap_walk(struct rev_info *revs)
 			else
 				object_list_insert(object, &wants);
 
-			if (!tag->tagged)
-				die("bad tag");
-			object = parse_object_or_die(&tag->tagged->oid, NULL);
+			object = parse_object_or_die(get_tagged_oid(tag), NULL);
 		}
 
 		if (object->flags & UNINTERESTING)
@@ -1063,7 +1061,7 @@ int rebuild_existing_bitmaps(struct bitmap_index *bitmap_git,
 
 		entry = &bitmap_git->pack->revindex[i];
 		nth_packed_object_oid(&oid, bitmap_git->pack, entry->nr);
-		oe = packlist_find(mapping, &oid, NULL);
+		oe = packlist_find(mapping, &oid);
 
 		if (oe)
 			reposition[i] = oe_in_pack_pos(mapping, oe) + 1;

@@ -403,9 +403,9 @@ static int repo_collect_ambiguous(struct repository *r,
 	return collect_ambiguous(oid, data);
 }
 
-static struct repository *sort_ambiguous_repo;
-static int sort_ambiguous(const void *a, const void *b)
+static int sort_ambiguous(const void *a, const void *b, void *ctx)
 {
+	struct repository *sort_ambiguous_repo = ctx;
 	int a_type = oid_object_info(sort_ambiguous_repo, a, NULL);
 	int b_type = oid_object_info(sort_ambiguous_repo, b, NULL);
 	int a_type_sort;
@@ -434,10 +434,7 @@ static int sort_ambiguous(const void *a, const void *b)
 
 static void sort_ambiguous_oid_array(struct repository *r, struct oid_array *a)
 {
-	/* mutex will be needed if this code is to be made thread safe */
-	sort_ambiguous_repo = r;
-	QSORT(a->oid, a->nr, sort_ambiguous);
-	sort_ambiguous_repo = NULL;
+	QSORT_S(a->oid, a->nr, sort_ambiguous, r);
 }
 
 static enum get_oid_result get_short_oid(struct repository *r,
@@ -1163,13 +1160,22 @@ static enum get_oid_result get_oid_1(struct repository *r,
 	}
 
 	if (has_suffix) {
-		int num = 0;
+		unsigned int num = 0;
 		int len1 = cp - name;
 		cp++;
-		while (cp < name + len)
-			num = num * 10 + *cp++ - '0';
+		while (cp < name + len) {
+			unsigned int digit = *cp++ - '0';
+			if (unsigned_mult_overflows(num, 10))
+				return MISSING_OBJECT;
+			num *= 10;
+			if (unsigned_add_overflows(num, digit))
+				return MISSING_OBJECT;
+			num += digit;
+		}
 		if (!num && len1 == len - 1)
 			num = 1;
+		else if (num > INT_MAX)
+			return MISSING_OBJECT;
 		if (has_suffix == '^')
 			return get_parent(r, name, len1, oid, num);
 		/* else if (has_suffix == '~') -- goes without saying */
@@ -1289,7 +1295,7 @@ static int get_oid_oneline(struct repository *r,
 
 struct grab_nth_branch_switch_cbdata {
 	int remaining;
-	struct strbuf buf;
+	struct strbuf *sb;
 };
 
 static int grab_nth_branch_switch(struct object_id *ooid, struct object_id *noid,
@@ -1307,8 +1313,8 @@ static int grab_nth_branch_switch(struct object_id *ooid, struct object_id *noid
 		return 0;
 	if (--(cb->remaining) == 0) {
 		len = target - match;
-		strbuf_reset(&cb->buf);
-		strbuf_add(&cb->buf, match, len);
+		strbuf_reset(cb->sb);
+		strbuf_add(cb->sb, match, len);
 		return 1; /* we are done */
 	}
 	return 0;
@@ -1341,18 +1347,15 @@ static int interpret_nth_prior_checkout(struct repository *r,
 	if (nth <= 0)
 		return -1;
 	cb.remaining = nth;
-	strbuf_init(&cb.buf, 20);
+	cb.sb = buf;
 
 	retval = refs_for_each_reflog_ent_reverse(get_main_ref_store(r),
 			"HEAD", grab_nth_branch_switch, &cb);
 	if (0 < retval) {
-		strbuf_reset(buf);
-		strbuf_addbuf(buf, &cb.buf);
 		retval = brace - name + 1;
 	} else
 		retval = 0;
 
-	strbuf_release(&cb.buf);
 	return retval;
 }
 

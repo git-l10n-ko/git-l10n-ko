@@ -228,9 +228,11 @@ test_commit () {
 # can be a tag pointing to the commit-to-merge.
 
 test_merge () {
+	label="$1" &&
+	shift &&
 	test_tick &&
-	git merge -m "$1" "$2" &&
-	git tag "$1"
+	git merge -m "$label" "$@" &&
+	git tag "$label"
 }
 
 # Efficiently create <nr> commits, each with a unique number (from 1 to <nr>
@@ -580,7 +582,7 @@ test_expect_failure () {
 	export test_prereq
 	if ! test_skip "$@"
 	then
-		say >&3 "checking known breakage: $2"
+		say >&3 "checking known breakage of $TEST_NUMBER.$test_count '$1': $2"
 		if test_run_ "$2" expecting_failure
 		then
 			test_known_broken_ok_ "$1"
@@ -600,7 +602,7 @@ test_expect_success () {
 	export test_prereq
 	if ! test_skip "$@"
 	then
-		say >&3 "expecting success: $2"
+		say >&3 "expecting success of $TEST_NUMBER.$test_count '$1': $2"
 		if test_run_ "$2"
 		then
 			test_ok_ "$1"

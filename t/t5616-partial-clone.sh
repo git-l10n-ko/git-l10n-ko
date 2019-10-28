@@ -42,8 +42,8 @@ test_expect_success 'do partial clone 1' '
 
 	test_cmp expect_1.oids observed.oids &&
 	test "$(git -C pc1 config --local core.repositoryformatversion)" = "1" &&
-	test "$(git -C pc1 config --local extensions.partialclone)" = "origin" &&
-	test "$(git -C pc1 config --local core.partialclonefilter)" = "blob:none"
+	test "$(git -C pc1 config --local remote.origin.promisor)" = "true" &&
+	test "$(git -C pc1 config --local remote.origin.partialclonefilter)" = "blob:none"
 '
 
 # checkout master to force dynamic object fetch of blobs at HEAD.
@@ -208,6 +208,25 @@ test_expect_success 'use fsck before and after manually fetching a missing subtr
 	test_cmp unique_types.expected unique_types.observed
 '
 
+test_expect_success 'implicitly construct combine: filter with repeated flags' '
+	GIT_TRACE=$(pwd)/trace git clone --bare \
+		--filter=blob:none --filter=tree:1 \
+		"file://$(pwd)/srv.bare" pc2 &&
+	grep "trace:.* git pack-objects .*--filter=combine:blob:none+tree:1" \
+		trace &&
+	git -C pc2 rev-list --objects --missing=allow-any HEAD >objects &&
+
+	# We should have gotten some root trees.
+	grep " $" objects &&
+	# Should not have gotten any non-root trees or blobs.
+	! grep " ." objects &&
+
+	xargs -n 1 git -C pc2 cat-file -t <objects >types &&
+	sort -u types >unique_types.actual &&
+	test_write_lines commit tree >unique_types.expected &&
+	test_cmp unique_types.expected unique_types.actual
+'
+
 test_expect_success 'partial clone fetches blobs pointed to by refs even if normally filtered out' '
 	rm -rf src dst &&
 	git init src &&
@@ -239,6 +258,42 @@ test_expect_success 'fetch what is specified on CLI even if already promised' '
 	git -C dst.git fetch origin $(cat blob) &&
 	git -C dst.git rev-list --objects --quiet --missing=print HEAD >missing_after &&
 	! grep "?$(cat blob)" missing_after
+'
+
+test_expect_success 'setup src repo for sparse filter' '
+	git init sparse-src &&
+	git -C sparse-src config --local uploadpack.allowfilter 1 &&
+	git -C sparse-src config --local uploadpack.allowanysha1inwant 1 &&
+	test_commit -C sparse-src one &&
+	test_commit -C sparse-src two &&
+	echo /one.t >sparse-src/only-one &&
+	git -C sparse-src add . &&
+	git -C sparse-src commit -m "add sparse checkout files"
+'
+
+test_expect_success 'partial clone with sparse filter succeeds' '
+	rm -rf dst.git &&
+	git clone --no-local --bare \
+		  --filter=sparse:oid=master:only-one \
+		  sparse-src dst.git &&
+	(
+		cd dst.git &&
+		git rev-list --objects --missing=print HEAD >out &&
+		grep "^$(git rev-parse HEAD:one.t)" out &&
+		grep "^?$(git rev-parse HEAD:two.t)" out
+	)
+'
+
+test_expect_success 'partial clone with unresolvable sparse filter fails cleanly' '
+	rm -rf dst.git &&
+	test_must_fail git clone --no-local --bare \
+				 --filter=sparse:oid=master:no-such-name \
+				 sparse-src dst.git 2>err &&
+	test_i18ngrep "unable to access sparse blob in .master:no-such-name" err &&
+	test_must_fail git clone --no-local --bare \
+				 --filter=sparse:oid=master \
+				 sparse-src dst.git 2>err &&
+	test_i18ngrep "unable to parse sparse filter data in" err
 '
 
 . "$TEST_DIRECTORY"/lib-httpd.sh
@@ -416,5 +471,8 @@ test_expect_success 'tolerate server sending REF_DELTA against missing promisor 
 	# Ensure that the one-time-sed script was used.
 	! test -e "$HTTPD_ROOT_PATH/one-time-sed"
 '
+
+# DO NOT add non-httpd-specific tests here, because the last part of this
+# test script is only executed when httpd is available and enabled.
 
 test_done

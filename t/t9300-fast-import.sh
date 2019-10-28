@@ -85,6 +85,36 @@ test_expect_success 'A: create pack from stdin' '
 	An annotated tag that annotates a blob.
 	EOF
 
+	tag to-be-deleted
+	from :3
+	data <<EOF
+	Another annotated tag that annotates a blob.
+	EOF
+
+	reset refs/tags/to-be-deleted
+	from 0000000000000000000000000000000000000000
+
+	tag nested
+	mark :6
+	from :4
+	data <<EOF
+	Tag of our lovely commit
+	EOF
+
+	reset refs/tags/nested
+	from 0000000000000000000000000000000000000000
+
+	tag nested
+	mark :7
+	from :6
+	data <<EOF
+	Tag of tag of our lovely commit
+	EOF
+
+	alias
+	mark :8
+	to :5
+
 	INPUT_END
 	git fast-import --export-marks=marks.out <input &&
 	git whatchanged master
@@ -157,12 +187,19 @@ test_expect_success 'A: verify tag/series-A-blob' '
 	test_cmp expect actual
 '
 
+test_expect_success 'A: verify tag deletion is successful' '
+	test_must_fail git rev-parse --verify refs/tags/to-be-deleted
+'
+
 test_expect_success 'A: verify marks output' '
 	cat >expect <<-EOF &&
 	:2 $(git rev-parse --verify master:file2)
 	:3 $(git rev-parse --verify master:file3)
 	:4 $(git rev-parse --verify master:file4)
 	:5 $(git rev-parse --verify master^0)
+	:6 $(git cat-file tag nested | grep object | cut -d" " -f 2)
+	:7 $(git rev-parse --verify nested)
+	:8 $(git rev-parse --verify master^0)
 	EOF
 	test_cmp expect marks.out
 '
@@ -2781,7 +2818,6 @@ test_expect_success 'S: filemodify with garbage after mark must fail' '
 	COMMIT
 	M 100644 :403x hello.c
 	EOF
-	cat err &&
 	test_i18ngrep "space after mark" err
 '
 
@@ -2798,7 +2834,6 @@ test_expect_success 'S: filemodify with garbage after inline must fail' '
 	inline
 	BLOB
 	EOF
-	cat err &&
 	test_i18ngrep "nvalid dataref" err
 '
 
@@ -2812,7 +2847,6 @@ test_expect_success 'S: filemodify with garbage after sha1 must fail' '
 	COMMIT
 	M 100644 ${sha1}x hello.c
 	EOF
-	cat err &&
 	test_i18ngrep "space after SHA1" err
 '
 
@@ -2828,7 +2862,6 @@ test_expect_success 'S: notemodify with garbage after mark dataref must fail' '
 	COMMIT
 	N :202x :302
 	EOF
-	cat err &&
 	test_i18ngrep "space after mark" err
 '
 
@@ -2844,7 +2877,6 @@ test_expect_success 'S: notemodify with garbage after inline dataref must fail' 
 	note blob
 	BLOB
 	EOF
-	cat err &&
 	test_i18ngrep "nvalid dataref" err
 '
 
@@ -2858,7 +2890,6 @@ test_expect_success 'S: notemodify with garbage after sha1 dataref must fail' '
 	COMMIT
 	N ${sha1}x :302
 	EOF
-	cat err &&
 	test_i18ngrep "space after SHA1" err
 '
 
@@ -2874,7 +2905,6 @@ test_expect_success 'S: notemodify with garbage after mark commit-ish must fail'
 	COMMIT
 	N :202 :302x
 	EOF
-	cat err &&
 	test_i18ngrep "after mark" err
 '
 
@@ -2908,7 +2938,6 @@ test_expect_success 'S: from with garbage after mark must fail' '
 	EOF
 
 	# now evaluate the error
-	cat err &&
 	test_i18ngrep "after mark" err
 '
 
@@ -2928,7 +2957,6 @@ test_expect_success 'S: merge with garbage after mark must fail' '
 	merge :303x
 	M 100644 :403 hello.c
 	EOF
-	cat err &&
 	test_i18ngrep "after mark" err
 '
 
@@ -2944,7 +2972,6 @@ test_expect_success 'S: tag with garbage after mark must fail' '
 	tag S
 	TAG
 	EOF
-	cat err &&
 	test_i18ngrep "after mark" err
 '
 
@@ -2955,7 +2982,6 @@ test_expect_success 'S: cat-blob with garbage after mark must fail' '
 	test_must_fail git fast-import --import-marks=marks <<-EOF 2>err &&
 	cat-blob :403x
 	EOF
-	cat err &&
 	test_i18ngrep "after mark" err
 '
 
@@ -2966,7 +2992,6 @@ test_expect_success 'S: ls with garbage after mark must fail' '
 	test_must_fail git fast-import --import-marks=marks <<-EOF 2>err &&
 	ls :302x hello.c
 	EOF
-	cat err &&
 	test_i18ngrep "space after mark" err
 '
 
@@ -2975,7 +3000,6 @@ test_expect_success 'S: ls with garbage after sha1 must fail' '
 	test_must_fail git fast-import --import-marks=marks <<-EOF 2>err &&
 	ls ${sha1}x hello.c
 	EOF
-	cat err &&
 	test_i18ngrep "space after tree-ish" err
 '
 

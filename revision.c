@@ -28,6 +28,7 @@
 #include "commit-graph.h"
 #include "prio-queue.h"
 #include "hashmap.h"
+#include "utf8.h"
 
 volatile show_early_output_fn_t show_early_output;
 
@@ -107,30 +108,34 @@ struct path_and_oids_entry {
 };
 
 static int path_and_oids_cmp(const void *hashmap_cmp_fn_data,
-			     const struct path_and_oids_entry *e1,
-			     const struct path_and_oids_entry *e2,
+			     const struct hashmap_entry *eptr,
+			     const struct hashmap_entry *entry_or_key,
 			     const void *keydata)
 {
+	const struct path_and_oids_entry *e1, *e2;
+
+	e1 = container_of(eptr, const struct path_and_oids_entry, ent);
+	e2 = container_of(entry_or_key, const struct path_and_oids_entry, ent);
+
 	return strcmp(e1->path, e2->path);
 }
 
 static void paths_and_oids_init(struct hashmap *map)
 {
-	hashmap_init(map, (hashmap_cmp_fn) path_and_oids_cmp, NULL, 0);
+	hashmap_init(map, path_and_oids_cmp, NULL, 0);
 }
 
 static void paths_and_oids_clear(struct hashmap *map)
 {
 	struct hashmap_iter iter;
 	struct path_and_oids_entry *entry;
-	hashmap_iter_init(map, &iter);
 
-	while ((entry = (struct path_and_oids_entry *)hashmap_iter_next(&iter))) {
+	hashmap_for_each_entry(map, &iter, entry, ent /* member name */) {
 		oidset_clear(&entry->trees);
 		free(entry->path);
 	}
 
-	hashmap_free(map, 1);
+	hashmap_free_entries(map, struct path_and_oids_entry, ent);
 }
 
 static void paths_and_oids_insert(struct hashmap *map,
@@ -141,18 +146,19 @@ static void paths_and_oids_insert(struct hashmap *map,
 	struct path_and_oids_entry key;
 	struct path_and_oids_entry *entry;
 
-	hashmap_entry_init(&key, hash);
+	hashmap_entry_init(&key.ent, hash);
 
 	/* use a shallow copy for the lookup */
 	key.path = (char *)path;
 	oidset_init(&key.trees, 0);
 
-	if (!(entry = (struct path_and_oids_entry *)hashmap_get(map, &key, NULL))) {
+	entry = hashmap_get_entry(map, &key, ent, NULL);
+	if (!entry) {
 		entry = xcalloc(1, sizeof(struct path_and_oids_entry));
-		hashmap_entry_init(entry, hash);
+		hashmap_entry_init(&entry->ent, hash);
 		entry->path = xstrdup(key.path);
 		oidset_init(&entry->trees, 16);
-		hashmap_put(map, entry);
+		hashmap_put(map, &entry->ent);
 	}
 
 	oidset_insert(&entry->trees, oid);
@@ -235,8 +241,7 @@ void mark_trees_uninteresting_sparse(struct repository *r,
 		add_children_by_path(r, tree, &map);
 	}
 
-	hashmap_iter_init(&map, &map_iter);
-	while ((entry = hashmap_iter_next(&map_iter)))
+	hashmap_for_each_entry(&map, &map_iter, entry, ent /* member name */)
 		mark_trees_uninteresting_sparse(r, &entry->trees);
 
 	paths_and_oids_clear(&map);
@@ -404,9 +409,7 @@ static struct commit *handle_commit(struct rev_info *revs,
 		struct tag *tag = (struct tag *) object;
 		if (revs->tag_objects && !(flags & UNINTERESTING))
 			add_pending_object(revs, object, tag->tag);
-		if (!tag->tagged)
-			die("bad tag");
-		object = parse_object(revs->repo, &tag->tagged->oid);
+		object = parse_object(revs->repo, get_tagged_oid(tag));
 		if (!object) {
 			if (revs->ignore_missing_links || (flags & UNINTERESTING))
 				return NULL;
@@ -2063,7 +2066,6 @@ static int handle_revision_opt(struct rev_info *revs, int argc, const char **arg
 		revs->simplify_by_decoration = 1;
 		revs->limited = 1;
 		revs->prune = 1;
-		load_ref_decorations(NULL, DECORATE_SHORT_REFS);
 	} else if (!strcmp(arg, "--date-order")) {
 		revs->sort_order = REV_SORT_BY_COMMIT_DATE;
 		revs->topo_order = 1;
@@ -2523,6 +2525,7 @@ int setup_revisions(int argc, const char **argv, struct rev_info *revs, struct s
 	int i, flags, left, seen_dashdash, got_rev_arg = 0, revarg_opt;
 	struct argv_array prune_data = ARGV_ARRAY_INIT;
 	const char *submodule = NULL;
+	int seen_end_of_options = 0;
 
 	if (opt)
 		submodule = opt->submodule;
@@ -2552,7 +2555,7 @@ int setup_revisions(int argc, const char **argv, struct rev_info *revs, struct s
 		revarg_opt |= REVARG_CANNOT_BE_FILENAME;
 	for (left = i = 1; i < argc; i++) {
 		const char *arg = argv[i];
-		if (*arg == '-') {
+		if (!seen_end_of_options && *arg == '-') {
 			int opts;
 
 			opts = handle_revision_pseudo_opt(submodule,
@@ -2571,6 +2574,11 @@ int setup_revisions(int argc, const char **argv, struct rev_info *revs, struct s
 				if (revs->read_from_stdin++)
 					die("--stdin given twice?");
 				read_revisions_from_stdin(revs, &prune_data);
+				continue;
+			}
+
+			if (!strcmp(arg, "--end-of-options")) {
+				seen_end_of_options = 1;
 				continue;
 			}
 
@@ -2684,6 +2692,8 @@ int setup_revisions(int argc, const char **argv, struct rev_info *revs, struct s
 
 	grep_commit_pattern_type(GREP_PATTERN_TYPE_UNSPECIFIED,
 				 &revs->grep_filter);
+	if (!is_encoding_utf8(get_log_output_encoding()))
+		revs->grep_filter.ignore_locale = 1;
 	compile_grep_patterns(&revs->grep_filter);
 
 	if (revs->reverse && revs->reflog_info)

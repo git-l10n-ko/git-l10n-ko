@@ -36,7 +36,6 @@ static int agent_supported;
 static int server_supports_filtering;
 static struct lock_file shallow_lock;
 static const char *alternate_shallow_file;
-static char *negotiation_algorithm;
 static struct strbuf fsck_msg_types = STRBUF_INIT;
 
 /* Remember to update object flag allocation in object.h */
@@ -168,16 +167,16 @@ static enum ack_type get_ack(struct packet_reader *reader,
 	if (!strcmp(reader->line, "NAK"))
 		return NAK;
 	if (skip_prefix(reader->line, "ACK ", &arg)) {
-		if (!get_oid_hex(arg, result_oid)) {
-			arg += 40;
-			len -= arg - reader->line;
+		const char *p;
+		if (!parse_oid_hex(arg, result_oid, &p)) {
+			len -= p - reader->line;
 			if (len < 1)
 				return ACK;
-			if (strstr(arg, "continue"))
+			if (strstr(p, "continue"))
 				return ACK_continue;
-			if (strstr(arg, "common"))
+			if (strstr(p, "common"))
 				return ACK_common;
-			if (strstr(arg, "ready"))
+			if (strstr(p, "ready"))
 				return ACK_ready;
 			return ACK;
 		}
@@ -339,12 +338,9 @@ static int find_common(struct fetch_negotiator *negotiator,
 		}
 	}
 	if (server_supports_filtering && args->filter_options.choice) {
-		struct strbuf expanded_filter_spec = STRBUF_INIT;
-		expand_list_objects_filter_spec(&args->filter_options,
-						&expanded_filter_spec);
-		packet_buf_write(&req_buf, "filter %s",
-				 expanded_filter_spec.buf);
-		strbuf_release(&expanded_filter_spec);
+		const char *spec =
+			expand_list_objects_filter_spec(&args->filter_options);
+		packet_buf_write(&req_buf, "filter %s", spec);
 	}
 	packet_buf_flush(&req_buf);
 	state_len = req_buf.len;
@@ -386,6 +382,7 @@ static int find_common(struct fetch_negotiator *negotiator,
 		state_len = 0;
 	}
 
+	trace2_region_enter("fetch-pack", "negotiation_v0_v1", the_repository);
 	flushes = 0;
 	retval = -1;
 	if (args->no_dependents)
@@ -470,6 +467,7 @@ static int find_common(struct fetch_negotiator *negotiator,
 		}
 	}
 done:
+	trace2_region_leave("fetch-pack", "negotiation_v0_v1", the_repository);
 	if (!got_ready || !no_done) {
 		packet_buf_write(&req_buf, "done\n");
 		send_request(args, fd[1], &req_buf);
@@ -892,12 +890,13 @@ static struct ref *do_fetch_pack(struct fetch_pack_args *args,
 				 struct shallow_info *si,
 				 char **pack_lockfile)
 {
+	struct repository *r = the_repository;
 	struct ref *ref = copy_ref_list(orig_ref);
 	struct object_id oid;
 	const char *agent_feature;
 	int agent_len;
 	struct fetch_negotiator negotiator;
-	fetch_negotiator_init(&negotiator, negotiation_algorithm);
+	fetch_negotiator_init(r, &negotiator);
 
 	sort_ref_list(&ref, ref_compare_name);
 	QSORT(sought, nr_sought, cmp_ref_by_name);
@@ -911,7 +910,7 @@ static struct ref *do_fetch_pack(struct fetch_pack_args *args,
 
 	if (server_supports("shallow"))
 		print_verbose(args, _("Server supports %s"), "shallow");
-	else if (args->depth > 0 || is_repository_shallow(the_repository))
+	else if (args->depth > 0 || is_repository_shallow(r))
 		die(_("Server does not support shallow clients"));
 	if (args->depth > 0 || args->deepen_since || args->deepen_not)
 		args->deepen = 1;
@@ -1112,7 +1111,7 @@ static int add_haves(struct fetch_negotiator *negotiator,
 }
 
 static int send_fetch_request(struct fetch_negotiator *negotiator, int fd_out,
-			      const struct fetch_pack_args *args,
+			      struct fetch_pack_args *args,
 			      const struct ref *wants, struct oidset *common,
 			      int *haves_to_send, int *in_vain,
 			      int sideband_all)
@@ -1153,13 +1152,10 @@ static int send_fetch_request(struct fetch_negotiator *negotiator, int fd_out,
 	/* Add filter */
 	if (server_supports_feature("fetch", "filter", 0) &&
 	    args->filter_options.choice) {
-		struct strbuf expanded_filter_spec = STRBUF_INIT;
+		const char *spec =
+			expand_list_objects_filter_spec(&args->filter_options);
 		print_verbose(args, _("Server supports filter"));
-		expand_list_objects_filter_spec(&args->filter_options,
-						&expanded_filter_spec);
-		packet_buf_write(&req_buf, "filter %s",
-				 expanded_filter_spec.buf);
-		strbuf_release(&expanded_filter_spec);
+		packet_buf_write(&req_buf, "filter %s", spec);
 	} else if (args->filter_options.choice) {
 		warning("filtering not recognized by server, ignoring");
 	}
@@ -1379,14 +1375,15 @@ static struct ref *do_fetch_pack_v2(struct fetch_pack_args *args,
 				    struct shallow_info *si,
 				    char **pack_lockfile)
 {
+	struct repository *r = the_repository;
 	struct ref *ref = copy_ref_list(orig_ref);
 	enum fetch_state state = FETCH_CHECK_LOCAL;
 	struct oidset common = OIDSET_INIT;
 	struct packet_reader reader;
-	int in_vain = 0;
+	int in_vain = 0, negotiation_started = 0;
 	int haves_to_send = INITIAL_FLUSH;
 	struct fetch_negotiator negotiator;
-	fetch_negotiator_init(&negotiator, negotiation_algorithm);
+	fetch_negotiator_init(r, &negotiator);
 	packet_reader_init(&reader, fd[0], NULL, 0,
 			   PACKET_READ_CHOMP_NEWLINE |
 			   PACKET_READ_DIE_ON_ERR_PACKET);
@@ -1426,6 +1423,12 @@ static struct ref *do_fetch_pack_v2(struct fetch_pack_args *args,
 			}
 			break;
 		case FETCH_SEND_REQUEST:
+			if (!negotiation_started) {
+				negotiation_started = 1;
+				trace2_region_enter("fetch-pack",
+						    "negotiation_v2",
+						    the_repository);
+			}
 			if (send_fetch_request(&negotiator, fd[1], args, ref,
 					       &common,
 					       &haves_to_send, &in_vain,
@@ -1449,6 +1452,9 @@ static struct ref *do_fetch_pack_v2(struct fetch_pack_args *args,
 			}
 			break;
 		case FETCH_GET_PACK:
+			trace2_region_leave("fetch-pack",
+					    "negotiation_v2",
+					    the_repository);
 			/* Check for shallow-info section */
 			if (process_section_header(&reader, "shallow-info", 1))
 				receive_shallow_info(args, &reader, shallows, si);
@@ -1505,8 +1511,6 @@ static void fetch_pack_config(void)
 	git_config_get_bool("repack.usedeltabaseoffset", &prefer_ofs_delta);
 	git_config_get_bool("fetch.fsckobjects", &fetch_fsck_objects);
 	git_config_get_bool("transfer.fsckobjects", &transfer_fsck_objects);
-	git_config_get_string("fetch.negotiationalgorithm",
-			      &negotiation_algorithm);
 
 	git_config(fetch_pack_config_cb, NULL);
 }

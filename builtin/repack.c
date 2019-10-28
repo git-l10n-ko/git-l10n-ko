@@ -11,6 +11,7 @@
 #include "midx.h"
 #include "packfile.h"
 #include "object-store.h"
+#include "promisor-remote.h"
 
 static int delta_base_offset = 1;
 static int pack_kept_objects = -1;
@@ -190,7 +191,7 @@ static int write_oid(const struct object_id *oid, struct packed_git *pack,
 			die(_("could not start pack-objects to repack promisor objects"));
 	}
 
-	xwrite(cmd->in, oid_to_hex(oid), GIT_SHA1_HEXSZ);
+	xwrite(cmd->in, oid_to_hex(oid), the_hash_algo->hexsz);
 	xwrite(cmd->in, "\n", 1);
 	return 0;
 }
@@ -361,7 +362,7 @@ int cmd_repack(int argc, const char **argv, const char *prefix)
 	argv_array_push(&cmd.args, "--all");
 	argv_array_push(&cmd.args, "--reflog");
 	argv_array_push(&cmd.args, "--indexed-objects");
-	if (repository_format_partial_clone)
+	if (has_promisor_remote())
 		argv_array_push(&cmd.args, "--exclude-promisor-objects");
 	if (write_bitmaps > 0)
 		argv_array_push(&cmd.args, "--write-bitmap-index");

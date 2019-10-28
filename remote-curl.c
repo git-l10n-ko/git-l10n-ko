@@ -40,7 +40,8 @@ struct options {
 		push_cert : 2,
 		deepen_relative : 1,
 		from_promisor : 1,
-		no_dependents : 1;
+		no_dependents : 1,
+		atomic : 1;
 };
 static struct options options;
 static struct string_list cas_options = STRING_LIST_INIT_DUP;
@@ -145,6 +146,14 @@ static int set_option(const char *name, const char *value)
 			options.push_cert = SEND_PACK_PUSH_CERT_NEVER;
 		else if (!strcmp(value, "if-asked"))
 			options.push_cert = SEND_PACK_PUSH_CERT_IF_ASKED;
+		else
+			return -1;
+		return 0;
+	} else if (!strcmp(name, "atomic")) {
+		if (!strcmp(value, "true"))
+			options.atomic = 1;
+		else if (!strcmp(value, "false"))
+			options.atomic = 0;
 		else
 			return -1;
 		return 0;
@@ -1154,7 +1163,7 @@ static void parse_fetch(struct strbuf *buf)
 	strbuf_reset(buf);
 }
 
-static int push_dav(int nr_spec, char **specs)
+static int push_dav(int nr_spec, const char **specs)
 {
 	struct child_process child = CHILD_PROCESS_INIT;
 	size_t i;
@@ -1175,7 +1184,7 @@ static int push_dav(int nr_spec, char **specs)
 	return 0;
 }
 
-static int push_git(struct discovery *heads, int nr_spec, char **specs)
+static int push_git(struct discovery *heads, int nr_spec, const char **specs)
 {
 	struct rpc_state rpc;
 	int i, err;
@@ -1196,6 +1205,8 @@ static int push_git(struct discovery *heads, int nr_spec, char **specs)
 		argv_array_push(&args, "--signed=yes");
 	else if (options.push_cert == SEND_PACK_PUSH_CERT_IF_ASKED)
 		argv_array_push(&args, "--signed=if-asked");
+	if (options.atomic)
+		argv_array_push(&args, "--atomic");
 	if (options.verbosity == 0)
 		argv_array_push(&args, "--quiet");
 	else if (options.verbosity > 1)
@@ -1225,7 +1236,7 @@ static int push_git(struct discovery *heads, int nr_spec, char **specs)
 	return err;
 }
 
-static int push(int nr_spec, char **specs)
+static int push(int nr_spec, const char **specs)
 {
 	struct discovery *heads = discover_refs("git-receive-pack", 1);
 	int ret;
@@ -1240,14 +1251,12 @@ static int push(int nr_spec, char **specs)
 
 static void parse_push(struct strbuf *buf)
 {
-	char **specs = NULL;
-	int alloc_spec = 0, nr_spec = 0, i, ret;
+	struct argv_array specs = ARGV_ARRAY_INIT;
+	int ret;
 
 	do {
-		if (starts_with(buf->buf, "push ")) {
-			ALLOC_GROW(specs, nr_spec + 1, alloc_spec);
-			specs[nr_spec++] = xstrdup(buf->buf + 5);
-		}
+		if (starts_with(buf->buf, "push "))
+			argv_array_push(&specs, buf->buf + 5);
 		else
 			die(_("http transport does not support %s"), buf->buf);
 
@@ -1258,7 +1267,7 @@ static void parse_push(struct strbuf *buf)
 			break;
 	} while (1);
 
-	ret = push(nr_spec, specs);
+	ret = push(specs.argc, specs.argv);
 	printf("\n");
 	fflush(stdout);
 
@@ -1266,9 +1275,7 @@ static void parse_push(struct strbuf *buf)
 		exit(128); /* error already reported */
 
  free_specs:
-	for (i = 0; i < nr_spec; i++)
-		free(specs[i]);
-	free(specs);
+	argv_array_clear(&specs);
 }
 
 static int stateless_connect(const char *service_name)

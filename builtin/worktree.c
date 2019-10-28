@@ -10,7 +10,6 @@
 #include "run-command.h"
 #include "sigchain.h"
 #include "submodule.h"
-#include "refs.h"
 #include "utf8.h"
 #include "worktree.h"
 
@@ -350,7 +349,7 @@ static int add_worktree(const char *path, const char *refname,
 	 */
 	strbuf_reset(&sb);
 	strbuf_addf(&sb, "%s/HEAD", sb_repo.buf);
-	write_file(sb.buf, "%s", sha1_to_hex(null_sha1));
+	write_file(sb.buf, "%s", oid_to_hex(&null_oid));
 	strbuf_reset(&sb);
 	strbuf_addf(&sb, "%s/commondir", sb_repo.buf);
 	write_file(sb.buf, "../..");
@@ -880,7 +879,7 @@ static void check_clean_worktree(struct worktree *wt,
 			  original_path);
 	ret = xread(cp.out, buf, sizeof(buf));
 	if (ret)
-		die(_("'%s' is dirty, use --force to delete it"),
+		die(_("'%s' contains modified or untracked files, use --force to delete it"),
 		    original_path);
 	close(cp.out);
 	ret = finish_command(&cp);

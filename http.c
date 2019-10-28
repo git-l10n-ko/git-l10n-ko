@@ -513,9 +513,11 @@ static void set_proxyauth_name_password(CURL *result)
 #else
 		struct strbuf s = STRBUF_INIT;
 
-		strbuf_addstr_urlencode(&s, proxy_auth.username, 1);
+		strbuf_addstr_urlencode(&s, proxy_auth.username,
+					is_rfc3986_unreserved);
 		strbuf_addch(&s, ':');
-		strbuf_addstr_urlencode(&s, proxy_auth.password, 1);
+		strbuf_addstr_urlencode(&s, proxy_auth.password,
+					is_rfc3986_unreserved);
 		curl_proxyuserpwd = strbuf_detach(&s, NULL);
 		curl_easy_setopt(result, CURLOPT_PROXYUSERPWD, curl_proxyuserpwd);
 #endif
@@ -1073,6 +1075,7 @@ void http_init(struct remote *remote, const char *url, int proactive_auth)
 
 	git_config(urlmatch_config_entry, &config);
 	free(normalized_url);
+	string_list_clear(&config.vars, 1);
 
 #if LIBCURL_VERSION_NUM >= 0x073800
 	if (http_ssl_backend) {

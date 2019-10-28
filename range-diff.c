@@ -52,6 +52,7 @@ static int read_patches(const char *range, struct string_list *list)
 
 	argv_array_pushl(&cp.args, "log", "--no-color", "-p", "--no-merges",
 			"--reverse", "--date-order", "--decorate=no",
+			"--no-prefix",
 			/*
 			 * Choose indicators that are not used anywhere
 			 * else in diffs, but still look reasonable
@@ -111,7 +112,7 @@ static int read_patches(const char *range, struct string_list *list)
 			if (!util->diff_offset)
 				util->diff_offset = buf.len;
 			line[len - 1] = '\n';
-			len = parse_git_diff_header(&root, &linenr, 1, line,
+			len = parse_git_diff_header(&root, &linenr, 0, line,
 						    len, size, &patch);
 			if (len < 0)
 				die(_("could not parse git header '%.*s'"), (int)len, line);
@@ -217,8 +218,8 @@ static void find_exact_matches(struct string_list *a, struct string_list *b)
 		util->i = i;
 		util->patch = a->items[i].string;
 		util->diff = util->patch + util->diff_offset;
-		hashmap_entry_init(util, strhash(util->diff));
-		hashmap_add(&map, util);
+		hashmap_entry_init(&util->e, strhash(util->diff));
+		hashmap_add(&map, &util->e);
 	}
 
 	/* Now try to find exact matches in b */
@@ -228,8 +229,8 @@ static void find_exact_matches(struct string_list *a, struct string_list *b)
 		util->i = i;
 		util->patch = b->items[i].string;
 		util->diff = util->patch + util->diff_offset;
-		hashmap_entry_init(util, strhash(util->diff));
-		other = hashmap_remove(&map, util, NULL);
+		hashmap_entry_init(&util->e, strhash(util->diff));
+		other = hashmap_remove_entry(&map, util, e, NULL);
 		if (other) {
 			if (other->matching >= 0)
 				BUG("already assigned!");
@@ -239,7 +240,7 @@ static void find_exact_matches(struct string_list *a, struct string_list *b)
 		}
 	}
 
-	hashmap_free(&map, 0);
+	hashmap_free(&map);
 }
 
 static void diffsize_consume(void *data, char *line, unsigned long len)
